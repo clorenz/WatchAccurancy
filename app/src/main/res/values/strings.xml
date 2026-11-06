@@ -1,0 +1,19 @@
+<resources>
+    <string name="app_name">WatchAccurancy</string>
+    <string name="app_subtitle">Präzise Gangmessung für mechanische Uhren</string>
+    <string name="license_notice">WatchAccurancy ist freie Open-Source-Software (GPLv3)</string>
+    <string name="tab_watches">Uhren</string>
+    <string name="tab_measure">Messung</string>
+    <string name="tab_analysis">Diagramme</string>
+    <string name="tab_backup">Backup / Import</string>
+    
+    <!-- Positionen (Uhrenlagen) -->
+    <string name="pos_worn">Am Arm getragen (WORN)</string>
+    <string name="pos_winder">Uhrenbeweger (WINDER)</string>
+    <string name="pos_display_up">Zifferblatt oben (DU)</string>
+    <string name="pos_display_down">Zifferblatt unten (DD)</string>
+    <string name="pos_crown_up">Krone oben (CU)</string>
+    <string name="pos_crown_down">Krone unten (CD)</string>
+    <string name="pos_crown_left">Krone links (CL)</string>
+    <string name="pos_crown_right">Krone rechts (CR)</string>
+</resources>

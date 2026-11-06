@@ -1,0 +1,6 @@
+{
+  "name": "WatchAccurancy",
+  "description": "Präzises Tracken der Ganggenauigkeit mechanischer Uhren mit atomgenauer NTP-Zeit und Diagrammen.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
