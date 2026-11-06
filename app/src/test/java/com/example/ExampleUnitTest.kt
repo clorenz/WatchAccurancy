@@ -1,10 +1,10 @@
 package com.example
 
-import com.example.watchcheck.data.backup.BackupParser
-import com.example.watchcheck.data.model.MeasurementLog
-import com.example.watchcheck.data.model.RateCalculator
-import com.example.watchcheck.data.model.Watch
-import com.example.watchcheck.data.model.WatchPosition
+import de.uhrwerksarchiv.watchaccurancy.data.backup.BackupParser
+import de.uhrwerksarchiv.watchaccurancy.data.model.MeasurementLog
+import de.uhrwerksarchiv.watchaccurancy.data.model.RateCalculator
+import de.uhrwerksarchiv.watchaccurancy.data.model.Watch
+import de.uhrwerksarchiv.watchaccurancy.data.model.WatchPosition
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
