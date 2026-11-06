@@ -12,49 +12,49 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = PrecisionCyan,
-    onPrimary = Color(0xFF003544),
-    primaryContainer = Color(0xFF004D63),
-    onPrimaryContainer = PrecisionCyanLight,
-    secondary = AtomicAmber,
-    onSecondary = Color(0xFF452B00),
-    secondaryContainer = Color(0xFF633F00),
-    onSecondaryContainer = Color(0xFFFFDDB3),
-    tertiary = Color(0xFF80D4FF),
-    background = WatchNavyDark,
-    onBackground = Color(0xFFF1F5F9),
-    surface = WatchSurfaceDark,
-    onSurface = Color(0xFFF1F5F9),
-    surfaceVariant = WatchSurfaceDarkVariant,
-    onSurfaceVariant = Color(0xFFCBD5E1),
-    outline = Color(0xFF64748B),
+    primary = WatchCheckOrange,
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF4A1F00),
+    onPrimaryContainer = WatchCheckOrangeLight,
+    secondary = WatchCheckAccentAmber,
+    onSecondary = Color.Black,
+    secondaryContainer = Color(0xFF4D3300),
+    onSecondaryContainer = Color(0xFFFFE082),
+    tertiary = Color(0xFFFFB74D),
+    background = WatchCheckDarkBg,
+    onBackground = Color(0xFFEDEDED),
+    surface = WatchCheckDarkSurface,
+    onSurface = Color(0xFFEDEDED),
+    surfaceVariant = WatchCheckDarkSurfaceVariant,
+    onSurfaceVariant = Color(0xFFD5D5D5),
+    outline = Color(0xFF666666),
     error = PrecisionRed
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = PrecisionBluePrimary,
+    primary = WatchCheckOrangePrimary,
     onPrimary = Color.White,
-    primaryContainer = Color(0xFFE0F2FE),
-    onPrimaryContainer = Color(0xFF0369A1),
-    secondary = Color(0xFFD97706),
+    primaryContainer = Color(0xFFFFE0B2),
+    onPrimaryContainer = Color(0xFF5A1A00),
+    secondary = Color(0xFFFB8C00),
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFEF3C7),
-    onSecondaryContainer = Color(0xFF92400E),
-    tertiary = Color(0xFF0284C7),
-    background = WatchBgLight,
-    onBackground = Color(0xFF0F172A),
-    surface = WatchSurfaceLight,
-    onSurface = Color(0xFF0F172A),
-    surfaceVariant = WatchSurfaceLightVariant,
-    onSurfaceVariant = Color(0xFF475569),
-    outline = Color(0xFF94A3B8),
+    secondaryContainer = Color(0xFFFFF3E0),
+    onSecondaryContainer = Color(0xFF7B3300),
+    tertiary = Color(0xFFFF9800),
+    background = WatchCheckLightBg,
+    onBackground = Color(0xFF1C1B1F),
+    surface = WatchCheckLightSurface,
+    onSurface = Color(0xFF1C1B1F),
+    surfaceVariant = WatchCheckLightSurfaceVariant,
+    onSurfaceVariant = Color(0xFF49454F),
+    outline = Color(0xFF79747E),
     error = PrecisionRed
 )
 
 @Composable
 fun WatchAccurancyTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false, // Keep consistent horology palette
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {

@@ -76,6 +76,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val _isImporting = MutableStateFlow(false)
     val isImporting: StateFlow<Boolean> = _isImporting.asStateFlow()
 
+    private val _selectedPeriodSetId = MutableStateFlow<Int?>(null)
+    val selectedPeriodSetId: StateFlow<Int?> = _selectedPeriodSetId.asStateFlow()
+
     @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
     val selectedWatchLogs: StateFlow<List<MeasurementLog>> = _selectedWatchId
         .flatMapLatest { id ->
@@ -90,7 +93,25 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = emptyList()
         )
 
-    val ratePoints: StateFlow<List<RatePoint>> = selectedWatchLogs
+    val distinctPeriods: StateFlow<List<Int>> = selectedWatchLogs
+        .combine(flowOf(Unit)) { logs, _ ->
+            logs.map { it.setId }.distinct().sorted()
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val periodFilteredLogs: StateFlow<List<MeasurementLog>> = selectedWatchLogs
+        .combine(_selectedPeriodSetId) { logs, periodId ->
+            if (periodId == null) logs else logs.filter { it.setId == periodId }
+        }.stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyList()
+        )
+
+    val ratePoints: StateFlow<List<RatePoint>> = periodFilteredLogs
         .combine(_chartFilterPosition) { logs, filterPos ->
             val allPoints = RateCalculator.computeRatePoints(logs)
             if (filterPos == null) {
@@ -104,7 +125,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             initialValue = emptyList()
         )
 
-    val statistics: StateFlow<WatchStatistics> = selectedWatchLogs
+    val statistics: StateFlow<WatchStatistics> = periodFilteredLogs
         .combine(flowOf(Unit)) { logs, _ ->
             RateCalculator.computeStatistics(logs)
         }.stateIn(
@@ -132,7 +153,14 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun selectWatch(watchId: Long) {
-        _selectedWatchId.value = watchId
+        if (_selectedWatchId.value != watchId) {
+            _selectedWatchId.value = watchId
+            // Default to all periods or keep current
+        }
+    }
+
+    fun selectPeriod(setId: Int?) {
+        _selectedPeriodSetId.value = setId
     }
 
     fun setPosition(position: WatchPosition) {
@@ -174,6 +202,8 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun recordMeasurement(
         notes: String = "",
         extraValue: Double = 0.0,
+        startNewPeriod: Boolean = false,
+        targetSetId: Int? = null,
         onRecorded: (MeasurementLog, RatePoint?) -> Unit = { _, _ -> }
     ) {
         val watchId = _selectedWatchId.value
@@ -190,9 +220,19 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         val position = _selectedPosition.value
 
         viewModelScope.launch {
+            val currentLogs = repository.getLogsForWatchList(watchId)
+            val existingSetIds = currentLogs.map { it.setId }.distinct().sorted()
+            val currentMaxSetId = existingSetIds.maxOrNull() ?: 0
+
+            val computedSetId = when {
+                startNewPeriod -> if (currentLogs.isEmpty()) 0 else currentMaxSetId + 1
+                targetSetId != null -> targetSetId
+                else -> currentMaxSetId
+            }
+
             val log = MeasurementLog(
                 watchId = watchId,
-                setId = 0,
+                setId = computedSetId,
                 ntpTimestampMs = ntpTime,
                 watchTimestampMs = watchTime,
                 positionCode = position.code,
@@ -202,11 +242,15 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             val newId = repository.insertLog(log)
             val insertedLog = log.copy(id = newId)
 
+            // Select this period so overview immediately displays it
+            _selectedPeriodSetId.value = computedSetId
+
             setTargetTimeToNextMinute()
 
             val devSec = insertedLog.deviationSeconds
             val devSign = if (devSec >= 0) "+" else ""
-            val msg = String.format(java.util.Locale.US, "Messpunkt gespeichert! Abweichung: %s%.2fs (%s)", devSign, devSec, position.shortLabel)
+            val periodLabel = "Periode #${computedSetId + 1}"
+            val msg = String.format(java.util.Locale.US, "Messpunkt gespeichert (%s)! Abweichung: %s%.2fs (%s)", periodLabel, devSign, devSec, position.shortLabel)
             _uiEvents.emit(UiMessage.Success(msg))
 
             onRecorded(insertedLog, null)

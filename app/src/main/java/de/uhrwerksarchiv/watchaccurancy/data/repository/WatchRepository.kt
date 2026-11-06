@@ -23,6 +23,10 @@ class WatchRepository(
         return logDao.getLogsForWatch(watchId)
     }
 
+    suspend fun getLogsForWatchList(watchId: Long): List<MeasurementLog> = withContext(Dispatchers.IO) {
+        logDao.getLogsForWatchList(watchId)
+    }
+
     suspend fun getWatchById(id: Long): Watch? = withContext(Dispatchers.IO) {
         watchDao.getWatchById(id)
     }

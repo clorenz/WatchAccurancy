@@ -4,11 +4,11 @@ import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -26,17 +26,24 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.Watch
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -45,7 +52,6 @@ import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -80,12 +86,14 @@ fun MeasureScreen(
     selectedPosition: WatchPosition,
     targetWatchTimeMs: Long,
     ntpStatus: NtpStatus,
+    existingPeriods: List<Int> = emptyList(),
     onSelectWatch: (Long) -> Unit,
     onSetPosition: (WatchPosition) -> Unit,
     onAdjustTargetMinute: (Int) -> Unit,
     onSetTargetToNextMinute: () -> Unit,
     onSyncNtp: () -> Unit,
-    onRecordMeasurement: (String, Double) -> Unit,
+    onRecordMeasurement: (notes: String, extraValue: Double, startNewPeriod: Boolean, targetSetId: Int?, onComplete: () -> Unit) -> Unit,
+    onNavigateToOverview: (Long) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
@@ -93,7 +101,6 @@ fun MeasureScreen(
     var extraValueText by remember { mutableStateOf("0") }
     var showWatchDropdown by remember { mutableStateOf(false) }
     var showPositionDropdown by remember { mutableStateOf(false) }
-    var showExtraOptions by remember { mutableStateOf(false) }
 
     var currentLiveNtpTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -102,6 +109,10 @@ fun MeasureScreen(
             delay(100)
         }
     }
+
+    var isNewPeriod by remember { mutableStateOf(false) }
+    val latestPeriodId = existingPeriods.maxOrNull() ?: 0
+    var selectedPeriodId by remember(existingPeriods) { mutableStateOf(latestPeriodId) }
 
     val selectedWatch = watches.firstOrNull { it.id == selectedWatchId }
 
@@ -130,6 +141,7 @@ fun MeasureScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
+        // 1. WATCH SELECTOR
         OutlinedCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -197,12 +209,14 @@ fun MeasureScreen(
             }
         }
 
+        // 2. NTP STATUS BANNER
         NtpStatusBar(
             ntpStatus = ntpStatus,
             liveTimeMs = currentLiveNtpTime,
             onRefresh = onSyncNtp
         )
 
+        // 3. TARGET WATCH TIME SETTER
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -276,6 +290,174 @@ fun MeasureScreen(
             }
         }
 
+        // 4. THE BIG MEASUREMENT BUTTON ("JETZT!") - DIREKT UNTER DER ZIEL-UHRENZEIT
+        Box(
+            modifier = Modifier
+                .size(200.dp)
+                .shadow(elevation = 12.dp, shape = CircleShape)
+                .clip(CircleShape)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            MaterialTheme.colorScheme.primary,
+                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
+                            MaterialTheme.colorScheme.onPrimaryContainer
+                        )
+                    )
+                )
+                .border(4.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f), CircleShape)
+                .clickable {
+                    triggerHapticFeedback()
+                    val extraVal = extraValueText.toDoubleOrNull() ?: 0.0
+                    val currentWatchId = selectedWatchId
+                    val willStartNew = isNewPeriod
+                    val targetSet = if (willStartNew) null else selectedPeriodId
+
+                    onRecordMeasurement(notes, extraVal, willStartNew, targetSet) {
+                        if (currentWatchId != null) {
+                            onNavigateToOverview(currentWatchId)
+                        }
+                    }
+                }
+                .testTag("record_measurement_big_button"),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Icon(
+                    Icons.Default.PlayArrow,
+                    contentDescription = null,
+                    tint = Color.White,
+                    modifier = Modifier.size(36.dp)
+                )
+                Text(
+                    text = "JETZT!",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.Black,
+                    color = Color.White,
+                    letterSpacing = 1.sp
+                )
+                Text(
+                    text = "Sekundenzeiger auf 12",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Color.White.copy(alpha = 0.9f),
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = Color.Black.copy(alpha = 0.3f)
+                ) {
+                    Text(
+                        text = "Speichern & zur Übersicht →",
+                        style = MaterialTheme.typography.labelSmall,
+                        fontSize = 9.sp,
+                        color = Color.White,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+        }
+
+        // 5. MESS-PERIODE (WIE BEI WATCHCHECK)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = if (isNewPeriod) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.35f) else MaterialTheme.colorScheme.surface
+            )
+        ) {
+            Column(
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.DateRange,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Column {
+                            Text(
+                                text = "Messperiode (WatchCheck):",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = if (isNewPeriod) "Neue Periode #${(existingPeriods.maxOrNull() ?: -1) + 2} (Start / Referenz)" else "Periode #${selectedPeriodId + 1}",
+                                style = MaterialTheme.typography.titleSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (isNewPeriod) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    FilterChip(
+                        selected = isNewPeriod,
+                        onClick = { isNewPeriod = !isNewPeriod },
+                        label = { Text(if (isNewPeriod) "Neue Periode aktiv" else "+ Neue Periode") },
+                        leadingIcon = {
+                            Icon(
+                                if (isNewPeriod) Icons.Default.Check else Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        },
+                        modifier = Modifier.testTag("toggle_new_period_chip")
+                    )
+                }
+
+                if (isNewPeriod) {
+                    Surface(
+                        shape = RoundedCornerShape(6.dp),
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "Hinweis: Der nächste Messpunkt beginnt eine neue, separate Messreihe (z.B. nach Einregulierung oder Tragepause). Dieser Punkt dient als neuer Referenzpunkt (Gang = Referenz).",
+                            style = MaterialTheme.typography.bodySmall,
+                            fontSize = 11.sp,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            modifier = Modifier.padding(8.dp)
+                        )
+                    }
+                } else if (existingPeriods.size > 1) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState())
+                    ) {
+                        Text(
+                            text = "Zuordnen zu:",
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        existingPeriods.forEach { pId ->
+                            FilterChip(
+                                selected = selectedPeriodId == pId,
+                                onClick = { selectedPeriodId = pId },
+                                label = { Text("Periode ${pId + 1}") }
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 6. POSITION DROPDOWN SELECTOR (UHRENLAGE)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp)
@@ -369,99 +551,77 @@ fun MeasureScreen(
             }
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
-
-        Box(
-            modifier = Modifier
-                .size(200.dp)
-                .shadow(elevation = 12.dp, shape = CircleShape)
-                .clip(CircleShape)
-                .background(
-                    Brush.radialGradient(
-                        colors = listOf(
-                            MaterialTheme.colorScheme.primary,
-                            MaterialTheme.colorScheme.primary.copy(alpha = 0.85f),
-                            MaterialTheme.colorScheme.onPrimaryContainer
-                        )
-                    )
-                )
-                .border(4.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f), CircleShape)
-                .clickable {
-                    triggerHapticFeedback()
-                    val extraVal = extraValueText.toDoubleOrNull() ?: 0.0
-                    onRecordMeasurement(notes, extraVal)
-                }
-                .testTag("record_measurement_big_button"),
-            contentAlignment = Alignment.Center
+        // 7. INFO-FREITEXT & ZUSATZDATEN (PERMANENT SICHTBAR)
+        Card(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
         ) {
             Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Center,
-                modifier = Modifier.padding(16.dp)
+                modifier = Modifier.padding(14.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    Icons.Default.PlayArrow,
-                    contentDescription = null,
-                    tint = Color.White,
-                    modifier = Modifier.size(36.dp)
-                )
-                Text(
-                    text = "JETZT!",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.Black,
-                    color = Color.White,
-                    letterSpacing = 1.sp
-                )
-                Text(
-                    text = "Sekundenzeiger auf 12",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Color.White.copy(alpha = 0.9f),
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(2.dp))
-                Surface(
-                    shape = RoundedCornerShape(4.dp),
-                    color = Color.Black.copy(alpha = 0.3f)
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(18.dp)
+                    )
                     Text(
-                        text = "Atomgenauer Abgleich",
-                        style = MaterialTheme.typography.labelSmall,
-                        fontSize = 9.sp,
-                        color = MaterialTheme.colorScheme.secondary,
-                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                        text = "Info-Freitext zur Messung (optional)",
+                        style = MaterialTheme.typography.titleSmall,
+                        fontWeight = FontWeight.Bold
                     )
                 }
-            }
-        }
 
-        TextButton(
-            onClick = { showExtraOptions = !showExtraOptions },
-            modifier = Modifier.testTag("toggle_extra_options")
-        ) {
-            Text(if (showExtraOptions) "Optionale Felder ausblenden ▲" else "Notiz / Zusatzwert hinzufügen ▼")
-        }
+                OutlinedTextField(
+                    value = notes,
+                    onValueChange = { notes = it },
+                    placeholder = { Text("z.B. tagsüber getragen, nachts 12 Uhr abgelegt, 21°C...") },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("measurement_notes_input"),
+                    singleLine = false,
+                    maxLines = 2
+                )
 
-        AnimatedVisibility(visible = showExtraOptions) {
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(12.dp)
-            ) {
-                Column(
-                    modifier = Modifier.padding(14.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                // Schnellauswahl-Chips für typische Uhren-Notizen
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    OutlinedTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = { Text("Notiz zum Messpunkt (z.B. Nachts Nachttisch)") },
-                        modifier = Modifier.fillMaxWidth().testTag("measurement_notes_input")
-                    )
+                    listOf("Am Arm", "Nachts abgelegt", "Uhrenbeweger", "Kalt (<18°C)", "Warm (>24°C)").forEach { suggestion ->
+                        AssistChip(
+                            onClick = {
+                                notes = if (notes.isBlank()) suggestion else "$notes, $suggestion"
+                            },
+                            label = { Text(suggestion, fontSize = 11.sp) },
+                            colors = AssistChipDefaults.assistChipColors(
+                                containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                            )
+                        )
+                    }
+                }
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
                     OutlinedTextField(
                         value = extraValueText,
                         onValueChange = { extraValueText = it },
-                        label = { Text("Zusatzwert (z.B. Temperatur °C)") },
+                        label = { Text("Zusatzwert / Temp. (°C)") },
                         singleLine = true,
-                        modifier = Modifier.fillMaxWidth().testTag("measurement_extra_input")
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("measurement_extra_input")
                     )
                 }
             }

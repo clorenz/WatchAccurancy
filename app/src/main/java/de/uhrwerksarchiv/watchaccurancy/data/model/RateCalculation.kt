@@ -49,49 +49,54 @@ data class PositionStatistic(
 object RateCalculator {
 
     /**
-     * Berechnet die Gangabweichung in s/d für eine sortierte Liste von Messpunkten (chronologisch aufsteigend).
+     * Berechnet die Gangabweichung in s/d für eine sortierte Liste von Messpunkten.
+     * Gruppiert nach Messperiode (setId), sodass jede Periode ihren eigenen Referenz-Startpunkt besitzt
+     * und Gangraten nicht fälschlich über Periodenwechsel hinweg berechnet werden.
      */
     fun computeRatePoints(logs: List<MeasurementLog>): List<RatePoint> {
         if (logs.isEmpty()) return emptyList()
-        val sorted = logs.sortedBy { it.ntpTimestampMs }
-        val results = mutableListOf<RatePoint>()
+        val grouped = logs.groupBy { it.setId }
+        val allPoints = mutableListOf<RatePoint>()
 
-        for (i in sorted.indices) {
-            val current = sorted[i]
-            if (i == 0) {
-                results.add(
-                    RatePoint(
-                        log = current,
-                        previousLog = null,
-                        rateSecondsPerDay = null,
-                        intervalHours = null,
-                        cumulativeDeviationSeconds = current.deviationSeconds
+        for ((_, setLogs) in grouped) {
+            val sorted = setLogs.sortedBy { it.ntpTimestampMs }
+            for (i in sorted.indices) {
+                val current = sorted[i]
+                if (i == 0) {
+                    allPoints.add(
+                        RatePoint(
+                            log = current,
+                            previousLog = null,
+                            rateSecondsPerDay = null,
+                            intervalHours = null,
+                            cumulativeDeviationSeconds = current.deviationSeconds
+                        )
                     )
-                )
-            } else {
-                val prev = sorted[i - 1]
-                val deltaMs = current.ntpTimestampMs - prev.ntpTimestampMs
-                val deltaHours = deltaMs / (1000.0 * 3600.0)
-                val deltaDays = deltaHours / 24.0
-
-                val rate = if (deltaDays > 0.0001) {
-                    (current.deviationSeconds - prev.deviationSeconds) / deltaDays
                 } else {
-                    0.0
-                }
+                    val prev = sorted[i - 1]
+                    val deltaMs = current.ntpTimestampMs - prev.ntpTimestampMs
+                    val deltaHours = deltaMs / (1000.0 * 3600.0)
+                    val deltaDays = deltaHours / 24.0
 
-                results.add(
-                    RatePoint(
-                        log = current,
-                        previousLog = prev,
-                        rateSecondsPerDay = rate,
-                        intervalHours = deltaHours,
-                        cumulativeDeviationSeconds = current.deviationSeconds
+                    val rate = if (deltaDays > 0.0001) {
+                        (current.deviationSeconds - prev.deviationSeconds) / deltaDays
+                    } else {
+                        0.0
+                    }
+
+                    allPoints.add(
+                        RatePoint(
+                            log = current,
+                            previousLog = prev,
+                            rateSecondsPerDay = rate,
+                            intervalHours = deltaHours,
+                            cumulativeDeviationSeconds = current.deviationSeconds
+                        )
                     )
-                )
+                }
             }
         }
-        return results
+        return allPoints.sortedBy { it.log.ntpTimestampMs }
     }
 
     /**
@@ -113,13 +118,13 @@ object RateCalculator {
         val ratePoints = computeRatePoints(logs)
         val validRates = ratePoints.mapNotNull { it.rateSecondsPerDay }
 
-        val first = ratePoints.first()
-        val last = ratePoints.last()
-        val totalMs = last.log.ntpTimestampMs - first.log.ntpTimestampMs
+        val first = logs.minByOrNull { it.ntpTimestampMs }!!
+        val last = logs.maxByOrNull { it.ntpTimestampMs }!!
+        val totalMs = last.ntpTimestampMs - first.ntpTimestampMs
         val totalDays = totalMs / (1000.0 * 86400.0)
 
-        val totalDrift = last.log.deviationSeconds - first.log.deviationSeconds
-        val avgOverall = if (totalDays > 0.001) totalDrift / totalDays else null
+        val totalDrift = last.deviationSeconds - first.deviationSeconds
+        val avgOverall = if (validRates.isNotEmpty()) validRates.average() else null
 
         // Position statistics
         val posMap = mutableMapOf<WatchPosition, MutableList<Double>>()
@@ -149,10 +154,15 @@ object RateCalculator {
     }
 
     private val dateFormatter = SimpleDateFormat("dd.MM.yy HH:mm", Locale.GERMANY)
+    private val dateTimeWithSecondsFormatter = SimpleDateFormat("dd.MM.yy HH:mm:ss", Locale.GERMANY)
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.GERMANY)
 
     fun formatDateTime(timestampMs: Long): String {
         return dateFormatter.format(Date(timestampMs))
+    }
+
+    fun formatDateTimeWithSeconds(timestampMs: Long): String {
+        return dateTimeWithSecondsFormatter.format(Date(timestampMs))
     }
 
     fun formatTimeOnly(timestampMs: Long): String {

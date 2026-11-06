@@ -3,6 +3,6 @@
     <item
         android:width="66dp"
         android:height="66dp"
-        android:drawable="@drawable/app_icon_watch_1793980226743"
+        android:drawable="@drawable/watchcheck_orange_icon_1793988440506"
         android:gravity="center" />
 </layer-list>

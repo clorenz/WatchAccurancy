@@ -118,4 +118,30 @@ class ExampleUnitTest {
         assertEquals(2.5, points[1].rateSecondsPerDay!!, 0.01)
         assertEquals(7.5, points[1].cumulativeDeviationSeconds, 0.001)
     }
+
+    @Test
+    fun testMultiPeriodRateCalculation() {
+        val baseTime = 1600000000000L
+        val oneDayMs = 86400000L
+
+        // Period 0: 2 logs (+4s, then +6s -> +2.0 s/d)
+        val p0Log1 = MeasurementLog(id = 1L, watchId = 1L, setId = 0, ntpTimestampMs = baseTime, watchTimestampMs = baseTime + 4000L)
+        val p0Log2 = MeasurementLog(id = 2L, watchId = 1L, setId = 0, ntpTimestampMs = baseTime + oneDayMs, watchTimestampMs = baseTime + oneDayMs + 6000L)
+
+        // Period 1 (e.g. 30 days later): 2 logs (+1s, then +2s -> +1.0 s/d)
+        val p1Time = baseTime + 30 * oneDayMs
+        val p1Log1 = MeasurementLog(id = 3L, watchId = 1L, setId = 1, ntpTimestampMs = p1Time, watchTimestampMs = p1Time + 1000L)
+        val p1Log2 = MeasurementLog(id = 4L, watchId = 1L, setId = 1, ntpTimestampMs = p1Time + oneDayMs, watchTimestampMs = p1Time + oneDayMs + 2000L)
+
+        val points = RateCalculator.computeRatePoints(listOf(p0Log1, p0Log2, p1Log1, p1Log2))
+        assertEquals(4, points.size)
+
+        // First point of Period 0 is reference
+        assertEquals(null, points[0].rateSecondsPerDay)
+        assertEquals(2.0, points[1].rateSecondsPerDay!!, 0.01)
+
+        // First point of Period 1 is a new reference (no drift calculated across period boundaries)
+        assertEquals(null, points[2].rateSecondsPerDay)
+        assertEquals(1.0, points[3].rateSecondsPerDay!!, 0.01)
+    }
 }

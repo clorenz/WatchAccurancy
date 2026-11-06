@@ -134,37 +134,44 @@ Repräsentiert einen einzelnen Messpunkt:
 ### 5.2 Messwerterfassung (`MeasureScreen`)
 - **NTP-Status-Banner**: Zeigt Live-Verbindungsstatus, NTP-Servername, geschätzte Genauigkeit ($\pm X \text{ ms}$) und Atomzeit an.
 - **Ziel-Uhrenzeit-Wähler**: Automatische Vorbelegung auf die nächste volle Minute (`:00`) sowie Schnellschalttasten (`-1 Min`, `+1 Min`, `Nächste Minute`).
+- **Großer taktiler Erfassungs-Button („JETZT!“)**: Direkt unter der Ziel-Uhrenzeit platziert für optimale Blick- und Klickergonomie beim Beobachten des Zeigersprungs der mechanischen Uhr. Leuchtendes WatchCheck-Orange mit haptischer Vibrations-Rückmeldung.
+- **Messperioden-Steuerung (WatchCheck-Sets)**: Möglichkeit, im Mess-Dialog eine neue Messperiode (`setId + 1`) zu beginnen. Der neue Messpunkt wird automatisch als neue Referenz (Basispunkt) für die Periode definiert. Bei bestehenden Perioden kann auch eine Zuordnung vorgenommen werden.
 - **Lagen-Auswahl**: Übersichtliches Dropdown mit Farbkodierung und horologischen Erläuterungen für alle 8 Lagen.
-- **Großer taktiler Erfassungs-Button**: Großflächig gestalteter, haptisch rückkoppelnder Auslöser für millimetergenaues Auslösen beim Zeigersprung.
-- **Optionale Zusatzfelder**: Einblendbare Eingabefelder für Umgebungstemperatur und Kontextnotizen.
+- **Info-Freitext-Eingabe (Permanent sichtbar)**: Direkt zugängliches Textfeld zur Eingabe von Notizen und Kontext (z. B. "Büro getragen", "Nachts 12 Uhr abgelegt", "Temperatur 21°C") mit praktischen Schnellwahl-Chips.
+- **Zusatzwert**: Separates numerisches Eingabefeld (z. B. für Temperatur in °C oder Gangreserve).
+- **Automatischer Workflow-Übergang**: Unmittelbar nach Speichern der Messung wechselt die Anwendung automatisch auf die tabellarische Uhren-Übersichtsseite und selektiert die betreffende Periode.
 
-### 5.3 Nachträgliche Korrektur von Messpunkten (`EditMeasurementDialog`)
-Falls sich der Benutzer beim Einstellen der Zielzeit vertan hat oder eine falsche Lage gewählt wurde:
-- Direkter **Bearbeiten-Button (Bleistift-Icon)** an jedem Listeneintrag im Diagramm-Tab.
-- Ermöglicht das **nachträgliche Anpassen** von:
-  - Zeigerzeit ($t_{\text{Uhr}}$) über Schnellwahltasten ($-1\text{m}$, $-1\text{s}$, $+1\text{s}$, $+1\text{m}$)
-  - Uhrenlage (`positionCode`)
-  - Zusatzwert (Temperatur)
-  - Notiztext
-- Nach dem Speichern aktualisiert Room die Datenbank transaktionssicher; Diagramm, Gangraten und Statistiken werden in Echtzeit neu berechnet.
+### 5.3 Uhren-Übersicht, Messperioden-Tabs & Tabellarische Messergebnisse (`ChartsScreen`)
+Die Übersichtsseite bietet, getreu dem Vorbild der ursprünglichen WatchCheck-App, eine tabellarische und grafische Übersicht:
+- **Messperioden-Auswahl per Tabs (WatchCheck-Modus)**:
+  - Horizontale Tabs zur Auswahl der jeweiligen Messperiode: `[Alle (Gesamtanzahl)]`, `[Periode 1]`, `[Periode 2]`, ...
+  - Sowohl die Tabelle als auch die Diagramme und die Statistik-Karten filtern synchron auf die gewählte Periode.
+  - In einer Periode bildet die erste Messung die Referenz (`Gang = Referenz`); nachfolgende Messungen errechnen den täglichen Gang exakt innerhalb der betreffenden Periode.
+- **Spaltenstruktur der Tabelle**:
+  1. **Referenz (NTP)**: Exakter atomarer Zeitstempel **mit Sekunden** (Format: `dd.MM.yy HH:mm:ss`, z. B. `06.11.26 14:30:15`).
+  2. **Abweichung**: Absolute Abweichung der Uhr von der Atomzeit in Sekunden mit Vorzeichen (z. B. `+2.45s`).
+  3. **Täglicher Gang**: Berechnete Gangdrift in Sekunden pro Tag ($s/d$), bei der Erstmessung einer Periode als `Ref.` markiert.
+  4. **Lage**: Horologischer Lagen-Code mit farbkodiertem Badge (`WORN`, `DU`, `DD`, `CU`, `CD`, `CL`, `CR`, `WINDER`).
+  5. **(I)-Info-Button**: Zeigt beim Antippen einen modalen Info-Dialog (`MeasurementInfoDialog`) mit dem vollständigen Freitext, Zusatzwerten, Referenz- und Zeigerzeit sowie Lageninformationen.
+- **Direkte Zeilen-Editierung**: Durch Antippen einer beliebigen Zeile in der Tabelle öffnet sich sofort der Korrektur-Dialog (`EditMeasurementDialog`).
 
-### 5.4 Interaktive Diagramme & Horologische Kennzahlen (`ChartsScreen`)
-- **Custom Compose Canvas-Diagramm**:
-  - Umschaltung: **Gangabweichung ($s/d$)** vs. **Kumulierte Gesamtabweichung ($s$)**.
-  - Farbkodierte Datenpunkte nach Uhrenlage (Cyan = WORN, Smaragd = DU, Orange = DD, Violett = CU, Rot = CD).
-  - Gestrichelte Null-Referenzlinie ($0{,}0 \text{ s/d}$).
-  - Dynamische Y-Achsenskalierung mit Gitterlinien.
-  - **Touch-Scrubbing**: Beim Antippen/Streichen über Datenpunkte öffnet sich ein Schwebetooltip mit Datum, Lagen-Badge, exaktem Gangwert und Notiz.
-- **Horologische Statistik-Karte**:
-  - Mittlerer Gang ($s/d$)
-  - Minimaler und maximaler Tagesgang
-  - Gesamtdrift ($\Delta t_{\text{Ende}} - \Delta t_{\text{Start}}$)
-  - Beobachtungszeitraum in Tagen
-  - COSC-Chronometer-Prüfung (Konformitätsanzeige)
-- **Lagenvergleichs-Tabelle**: Zeigt den durchschnittlichen Gang aufgeschlüsselt nach jeder gemessenen Position (z. B. $DU: +1{,}8 \text{ s/d}$, $WORN: -0{,}4 \text{ s/d}$).
-- **Messpunkt-Historie**: Chronologische Auflistung mit Bearbeitungs- und Löschmöglichkeit.
+### 5.4 Nachträgliche Korrektur von Messpunkten (`EditMeasurementDialog`)
+Ermöglicht das unkomplizierte Nachjustieren von:
+- Zeigerzeit ($t_{\text{Uhr}}$) mit Schnelltasten ($-1\text{m}$, $-1\text{s}$, $+1\text{s}$, $+1\text{m}$) und Live-Vorschau der resultierenden Abweichung.
+- Messperiode (`setId`): Zuordnung zu einer anderen Periode oder Neuanlage.
+- Uhrenlage (`positionCode`).
+- Info-Freitext und Zusatzwert (Temperatur).
+- Alle Diagramme, Gangraten und COSC-Statistiken werden bei Änderungen in Echtzeit neu berechnet.
 
-### 5.5 Backup-Import & Export (`BackupScreen`)
+### 5.5 Interaktive Diagramme & Horologische Kennzahlen
+Neben der Tabellenansicht steht ein Umschalter auf das **Liniendiagramm** bereit:
+- Vollständige Synchronisation mit den **Messperioden-Tabs** (Darstellung der gewählten Periode oder Gesamthistorie).
+- Umschaltung: **Gangabweichung ($s/d$)** vs. **Kumulierte Gesamtabweichung ($s$)**.
+- Farbkodierte Datenpunkte nach Uhrenlage mit Touch-Scrubbing-Tooltip.
+- Horologische Statistik-Karte (mittlerer Gang, Min/Max, Gesamtdrift, COSC-Konformitätsprüfung).
+- Lagenvergleichs-Tabelle mit Durchschnittswerten je Position.
+
+### 5.6 Backup-Import & Export (`BackupScreen`)
 - **Historischer WatchCheck-Parser**:
   Liest zeilenweise Textdateien im Format:
   ```text
@@ -176,6 +183,11 @@ Falls sich der Benutzer beim Einstellen der Zielzeit vertan hat oder eine falsch
   - Verwaiste Logs (deren `WatchID` im File fehlt) erhalten automatisch eine generierte Platzhalter-Uhr, sodass keine Messwerte verloren gehen.
 - **Import-Vorschau**: Zeigt vor dem Schreibvorgang Anzahl erkannter Uhren, Messpunkte und Warnungen.
 - **Export**: Erzeugt identisch formatierte Text-Dateien zum Kopieren in die Zwischenablage oder Teilen per Android-Share-Sheet (`ACTION_SEND`).
+
+### 5.7 Design-System & Visuelle Identität (WatchCheck Orange)
+- **Klassisches Farbschema**: Wiedererkennbarer, kontraststarker Look der Original-App mit leuchtendem Signal-Orange (`#FF6D00` / `#E65100`), tiefem Anthrazit (`#141414` / `#1F1F1F`) und Akzenten in Gold/Amber.
+- **Erfassungs-Button**: Leuchtendes Radial-Gradient in WatchCheck-Orange für maximale Übersicht und taktile Zielgenauigkeit im Moment des Sekundenzeigersprungs.
+- **App-Icon**: Klassisches WatchCheck-Zifferblatt mit Zeigern und Präzisions-Häkchen auf leuchtendem Orange-Hintergrund als adaptives Android-Icon mit Raster-Fallbacks für alle Dichten.
 
 ---
 

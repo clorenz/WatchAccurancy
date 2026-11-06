@@ -19,14 +19,16 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FilterList
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material.icons.filled.ShowChart
+import androidx.compose.material.icons.filled.TableChart
+import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -37,6 +39,7 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -44,6 +47,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedCard
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.PrimaryTabRow
+import androidx.compose.material3.ScrollableTabRow
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Tab
 import androidx.compose.material3.Text
@@ -60,6 +64,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import de.uhrwerksarchiv.watchaccurancy.data.model.MeasurementLog
@@ -73,6 +78,11 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+enum class OverviewViewMode {
+    TABLE,
+    CHART
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ChartsScreen(
@@ -81,16 +91,24 @@ fun ChartsScreen(
     ratePoints: List<RatePoint>,
     statistics: WatchStatistics,
     filterPosition: WatchPosition?,
+    distinctPeriods: List<Int> = emptyList(),
+    selectedPeriodSetId: Int? = null,
+    allWatchLogs: List<MeasurementLog> = emptyList(),
     onSelectWatch: (Long) -> Unit,
+    onSelectPeriod: (Int?) -> Unit = {},
     onFilterPosition: (WatchPosition?) -> Unit,
     onUpdateLog: (MeasurementLog) -> Unit,
     onDeleteLog: (Long) -> Unit,
+    initialViewMode: OverviewViewMode = OverviewViewMode.TABLE,
     modifier: Modifier = Modifier
 ) {
-    var metric by remember { mutableStateOf(ChartMetric.RATE_PER_DAY) }
+    var viewMode by remember { mutableStateOf(initialViewMode) }
+    var chartMetric by remember { mutableStateOf(ChartMetric.RATE_PER_DAY) }
     var showWatchDropdown by remember { mutableStateOf(false) }
+
     var logToDelete by remember { mutableStateOf<MeasurementLog?>(null) }
     var logToEdit by remember { mutableStateOf<MeasurementLog?>(null) }
+    var infoLogToShow by remember { mutableStateOf<RatePoint?>(null) }
 
     val selectedWatch = watches.firstOrNull { it.id == selectedWatchId }
     val scrollState = rememberScrollState()
@@ -102,7 +120,7 @@ fun ChartsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. WATCH SELECTOR
+        // 1. WATCH SELECTOR HEADER
         OutlinedCard(
             modifier = Modifier
                 .fillMaxWidth()
@@ -121,7 +139,11 @@ fun ChartsScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
-                    Icon(Icons.Default.ShowChart, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Icon(
+                        Icons.Default.Watch,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
                     Column {
                         Text(
                             text = "Ausgewählte Uhr:",
@@ -133,6 +155,13 @@ fun ChartsScreen(
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold
                         )
+                        if (selectedWatch != null && selectedWatch.caliber.isNotBlank()) {
+                            Text(
+                                text = "Werk: ${selectedWatch.caliber}",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                     }
                 }
                 Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
@@ -144,7 +173,14 @@ fun ChartsScreen(
             ) {
                 watches.forEach { watch ->
                     DropdownMenuItem(
-                        text = { Text(watch.model, fontWeight = FontWeight.SemiBold) },
+                        text = {
+                            Column {
+                                Text(watch.model, fontWeight = FontWeight.Bold)
+                                if (watch.caliber.isNotBlank()) {
+                                    Text("Kaliber: ${watch.caliber}", style = MaterialTheme.typography.bodySmall)
+                                }
+                            }
+                        },
                         onClick = {
                             onSelectWatch(watch.id)
                             showWatchDropdown = false
@@ -154,127 +190,524 @@ fun ChartsScreen(
             }
         }
 
-        // 2. METRIC SELECTOR TABS
+        // 2. VIEW MODE SWITCHER TABS (Tabelle vs. Diagramm)
         PrimaryTabRow(
-            selectedTabIndex = if (metric == ChartMetric.RATE_PER_DAY) 0 else 1,
+            selectedTabIndex = if (viewMode == OverviewViewMode.TABLE) 0 else 1,
             modifier = Modifier.clip(RoundedCornerShape(12.dp))
         ) {
             Tab(
-                selected = metric == ChartMetric.RATE_PER_DAY,
-                onClick = { metric = ChartMetric.RATE_PER_DAY },
-                text = { Text("Gangabweichung (s/d)") },
-                modifier = Modifier.testTag("metric_rate_tab")
+                selected = viewMode == OverviewViewMode.TABLE,
+                onClick = { viewMode = OverviewViewMode.TABLE },
+                text = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Messergebnisse (Tabelle)")
+                    }
+                },
+                modifier = Modifier.testTag("tab_view_table")
             )
             Tab(
-                selected = metric == ChartMetric.CUMULATIVE_DEVIATION,
-                onClick = { metric = ChartMetric.CUMULATIVE_DEVIATION },
-                text = { Text("Abweichung (s)") },
-                modifier = Modifier.testTag("metric_deviation_tab")
+                selected = viewMode == OverviewViewMode.CHART,
+                onClick = { viewMode = OverviewViewMode.CHART },
+                text = {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Icon(Icons.Default.ShowChart, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text("Diagramm & Statistik")
+                    }
+                },
+                modifier = Modifier.testTag("tab_view_chart")
             )
         }
 
-        // 3. POSITION FILTER ROW
-        Column {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                modifier = Modifier.padding(bottom = 6.dp)
-            ) {
-                Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(
-                    text = "Nach Uhrenlage filtern:",
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        // 3. MESSPERIODEN TABS (WIE BEI WATCHCHECK)
+        if (distinctPeriods.isNotEmpty()) {
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(12.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f)
                 )
-            }
-
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                FilterChip(
-                    selected = filterPosition == null,
-                    onClick = { onFilterPosition(null) },
-                    label = { Text("Alle Lagen") },
-                    leadingIcon = if (filterPosition == null) {
-                        { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
-                    } else null,
-                    modifier = Modifier.testTag("filter_pos_all")
-                )
-
-                WatchPosition.entries.forEach { pos ->
-                    val isPosSelected = filterPosition == pos
-                    FilterChip(
-                        selected = isPosSelected,
-                        onClick = { onFilterPosition(if (isPosSelected) null else pos) },
-                        label = { Text(pos.shortLabel) },
-                        leadingIcon = {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(pos.color, CircleShape)
+                Column(
+                    modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(16.dp)
                             )
-                        },
-                        colors = FilterChipDefaults.filterChipColors(
-                            selectedContainerColor = pos.color.copy(alpha = 0.2f),
-                            selectedLabelColor = pos.color
-                        ),
-                        modifier = Modifier.testTag("filter_pos_${pos.code}")
-                    )
+                            Text(
+                                text = "Messperiode (WatchCheck):",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+
+                        if (selectedPeriodSetId != null) {
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = MaterialTheme.colorScheme.primaryContainer
+                            ) {
+                                Text(
+                                    text = "Periode #${selectedPeriodSetId + 1}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
+                            }
+                        } else {
+                            Text(
+                                text = "Alle Perioden",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+
+                    val allSelected = selectedPeriodSetId == null
+                    val selectedIndex = if (allSelected) 0 else {
+                        val idx = distinctPeriods.indexOf(selectedPeriodSetId)
+                        if (idx >= 0) idx + 1 else 0
+                    }
+
+                    ScrollableTabRow(
+                        selectedTabIndex = selectedIndex,
+                        edgePadding = 0.dp,
+                        containerColor = Color.Transparent,
+                        modifier = Modifier.clip(RoundedCornerShape(8.dp))
+                    ) {
+                        Tab(
+                            selected = allSelected,
+                            onClick = { onSelectPeriod(null) },
+                            text = {
+                                Text(
+                                    text = "Alle (${allWatchLogs.size})",
+                                    fontWeight = if (allSelected) FontWeight.Bold else FontWeight.Normal
+                                )
+                            },
+                            modifier = Modifier.testTag("tab_period_all")
+                        )
+
+                        distinctPeriods.forEach { pId ->
+                            val isSelected = selectedPeriodSetId == pId
+                            val pCount = allWatchLogs.count { it.setId == pId }
+                            Tab(
+                                selected = isSelected,
+                                onClick = { onSelectPeriod(pId) },
+                                text = {
+                                    Text(
+                                        text = "Periode ${pId + 1} ($pCount)",
+                                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                                    )
+                                },
+                                modifier = Modifier.testTag("tab_period_$pId")
+                            )
+                        }
+                    }
                 }
             }
         }
 
-        // 4. THE INTERACTIVE CANVAS CHART
-        WatchPrecisionChart(
-            ratePoints = ratePoints,
-            metric = metric,
-            modifier = Modifier.fillMaxWidth()
-        )
-
-        // 5. STATISTICS SUMMARY CARD
+        // QUICK STATS SUMMARY CHIP
         StatisticsSummaryCard(statistics = statistics)
 
-        // 6. POSITION TABLE CARD (LAGENVERGLEICH)
-        if (statistics.positionStats.isNotEmpty()) {
-            PositionStatsCard(positionStats = statistics.positionStats)
-        }
-
-        // 7. MEASUREMENT HISTORY TABLE WITH EDIT & DELETE
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        if (viewMode == OverviewViewMode.TABLE) {
+            // TABELLEN-ANSICHT: Referenz, Abweichung, Täglicher Gang, Position, (I)-Button
             Text(
-                text = "Messpunkt-Historie (${ratePoints.size})",
+                text = "Messergebnisse (${ratePoints.size} Einträge)",
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onBackground
             )
             Text(
-                text = "Tippe auf ✎ zum Korrigieren",
-                style = MaterialTheme.typography.labelSmall,
-                color = MaterialTheme.colorScheme.primary
+                text = "Tippe auf eine Zeile zum Editieren oder auf (i) für Notizen.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
-        }
 
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            ratePoints.reversed().forEach { point ->
-                MeasurementHistoryItem(
-                    point = point,
-                    onEdit = { logToEdit = point.log },
-                    onDelete = { logToDelete = point.log }
+            if (ratePoints.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().height(160.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)),
+                    shape = RoundedCornerShape(14.dp)
+                ) {
+                    Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                        Text(
+                            text = "Noch keine Messpunkte vorhanden. Führe im Reiter 'Messung' die erste Messung durch!",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    }
+                }
+            } else {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(14.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // TABELLEN-HEADER
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
+                                .padding(horizontal = 8.dp, vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Referenz (NTP)",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.weight(1.5f)
+                            )
+                            Text(
+                                text = "Abweich.",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.weight(0.9f)
+                            )
+                            Text(
+                                text = "Tägl. Gang",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.weight(1.0f)
+                            )
+                            Text(
+                                text = "Lage",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.weight(0.8f)
+                            )
+                            Box(modifier = Modifier.width(36.dp), contentAlignment = Alignment.Center) {
+                                Text(
+                                    text = "Info",
+                                    style = MaterialTheme.typography.labelSmall,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+
+                        // TABELLEN-ZEILEN (Chronologisch absteigend: neueste zuerst)
+                        ratePoints.reversed().forEachIndexed { index, point ->
+                            val isEven = index % 2 == 0
+                            val rowBg = if (isEven) MaterialTheme.colorScheme.surface else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.25f)
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .background(rowBg)
+                                    .clickable { logToEdit = point.log }
+                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    .testTag("table_row_${point.log.id}"),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                // 1. REFERENZ (NTP-Messzeitpunkt) MIT SEKUNDEN
+                                val dateFmt = remember { SimpleDateFormat("dd.MM.yy HH:mm:ss", Locale.GERMANY) }
+                                Text(
+                                    text = dateFmt.format(Date(point.log.ntpTimestampMs)),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 10.5.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium,
+                                    color = MaterialTheme.colorScheme.onSurface,
+                                    modifier = Modifier.weight(1.5f)
+                                )
+
+                                // 2. ABWEICHUNG (absolute Abweichung in s)
+                                val devSec = point.cumulativeDeviationSeconds
+                                val devSign = if (devSec >= 0) "+" else ""
+                                Text(
+                                    text = String.format(Locale.US, "%s%.2fs", devSign, devSec),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.End,
+                                    color = if (devSec >= 0) MaterialTheme.colorScheme.primary else Color(0xFFE65100),
+                                    modifier = Modifier.weight(1.0f)
+                                )
+
+                                // 3. TÄGLICHER GANG (s/d)
+                                val rateText = if (point.rateSecondsPerDay != null) {
+                                    val r = point.rateSecondsPerDay
+                                    val rSign = if (r >= 0) "+" else ""
+                                    String.format(Locale.US, "%s%.2f", rSign, r)
+                                } else {
+                                    "Ref."
+                                }
+                                Text(
+                                    text = rateText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    textAlign = TextAlign.End,
+                                    color = if (point.rateSecondsPerDay != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(1.1f)
+                                )
+
+                                // 4. POSITION (Uhrenlage)
+                                Box(
+                                    modifier = Modifier.weight(0.9f),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Surface(
+                                        shape = RoundedCornerShape(4.dp),
+                                        color = point.log.position.color.copy(alpha = 0.2f)
+                                    ) {
+                                        Text(
+                                            text = point.log.position.code,
+                                            style = MaterialTheme.typography.labelSmall,
+                                            fontSize = 10.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            color = point.log.position.color,
+                                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                                        )
+                                    }
+                                }
+
+                                // 5. (I) INFO-BUTTON
+                                val hasInfo = point.log.notes.isNotBlank() || point.log.extraValue != 0.0
+                                IconButton(
+                                    onClick = { infoLogToShow = point },
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .testTag("info_btn_${point.log.id}")
+                                ) {
+                                    Icon(
+                                        Icons.Default.Info,
+                                        contentDescription = "Zusatzinfo",
+                                        tint = if (hasInfo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                            }
+                            HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        }
+                    }
+                }
+            }
+
+        } else {
+            // DIAGRAMM-ANSICHT
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                // Position Filter Row
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    Icon(Icons.Default.FilterList, contentDescription = null, modifier = Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = "Nach Uhrenlage filtern:",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = filterPosition == null,
+                        onClick = { onFilterPosition(null) },
+                        label = { Text("Alle Lagen") },
+                        leadingIcon = if (filterPosition == null) {
+                            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                        } else null,
+                        modifier = Modifier.testTag("filter_pos_all")
+                    )
+
+                    WatchPosition.entries.forEach { pos ->
+                        val isPosSelected = filterPosition == pos
+                        FilterChip(
+                            selected = isPosSelected,
+                            onClick = { onFilterPosition(if (isPosSelected) null else pos) },
+                            label = { Text(pos.shortLabel) },
+                            leadingIcon = {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(pos.color, CircleShape)
+                                )
+                            },
+                            colors = FilterChipDefaults.filterChipColors(
+                                selectedContainerColor = pos.color.copy(alpha = 0.2f),
+                                selectedLabelColor = pos.color
+                            ),
+                            modifier = Modifier.testTag("filter_pos_${pos.code}")
+                        )
+                    }
+                }
+
+                // Interactive Canvas Chart
+                WatchPrecisionChart(
+                    ratePoints = ratePoints,
+                    metric = chartMetric,
+                    modifier = Modifier.fillMaxWidth()
                 )
+
+                // Lagen-Vergleichstabelle
+                if (statistics.positionStats.isNotEmpty()) {
+                    PositionStatsCard(positionStats = statistics.positionStats)
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(30.dp))
     }
 
-    // Edit Measurement Dialog (Messung nachträglich korrigieren)
+    // 1. INFO-DIALOG: Zeigt alle Freitexte und Details beim Antippen des (I)-Buttons
+    infoLogToShow?.let { pt ->
+        val log = pt.log
+        AlertDialog(
+            onDismissRequest = { infoLogToShow = null },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Info, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+                    Text("Messpunkt-Details & Info", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    // Info-Freitext
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
+                        shape = RoundedCornerShape(10.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.padding(12.dp)) {
+                            Text(
+                                text = "Eingegebener Info-Freitext:",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.primary,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = if (log.notes.isNotBlank()) log.notes else "(Kein Info-Freitext für diesen Messpunkt hinterlegt)",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    // Zusatzwert (z.B. Temperatur)
+                    if (log.extraValue != 0.0) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("Zusatzwert (z.B. Temp.):", style = MaterialTheme.typography.bodySmall)
+                            Text("${log.extraValue} °C", fontWeight = FontWeight.Bold, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+
+                    // Uhrenlage
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text("Uhrenlage:", style = MaterialTheme.typography.bodySmall)
+                        Surface(
+                            color = log.position.color.copy(alpha = 0.2f),
+                            shape = RoundedCornerShape(4.dp)
+                        ) {
+                            Text(
+                                text = "${log.position.germanTitle} (${log.position.code})",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = log.position.color,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                            )
+                        }
+                    }
+
+                    // Zeitstempel
+                    val fmt = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("NTP-Referenz:", style = MaterialTheme.typography.bodySmall)
+                        Text(fmt.format(Date(log.ntpTimestampMs)), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Zeiger-Uhrenzeit:", style = MaterialTheme.typography.bodySmall)
+                        Text(fmt.format(Date(log.watchTimestampMs)), fontFamily = FontFamily.Monospace, fontSize = 11.sp)
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        Text("Täglicher Gang:", style = MaterialTheme.typography.bodySmall)
+                        Text(pt.formattedRate, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                    }
+                }
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        val toEdit = log
+                        infoLogToShow = null
+                        logToEdit = toEdit
+                    }
+                ) {
+                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Bearbeiten")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { infoLogToShow = null }) {
+                    Text("Schließen")
+                }
+            }
+        )
+    }
+
+    // 2. KORREKTUR-DIALOG (EDIT MEASUREMENT)
     logToEdit?.let { log ->
         EditMeasurementDialog(
             log = log,
@@ -286,7 +719,7 @@ fun ChartsScreen(
         )
     }
 
-    // Delete Log Dialog
+    // 3. LÖSCHEN-DIALOG
     logToDelete?.let { log ->
         AlertDialog(
             onDismissRequest = { logToDelete = null },
@@ -472,97 +905,6 @@ private fun PositionStatsCard(positionStats: Map<WatchPosition, PositionStatisti
     }
 }
 
-@Composable
-private fun MeasurementHistoryItem(
-    point: RatePoint,
-    onEdit: () -> Unit,
-    onDelete: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-                modifier = Modifier.weight(1f)
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .background(point.log.position.color, CircleShape)
-                )
-                Column {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = RateCalculator.formatDateTime(point.log.ntpTimestampMs),
-                            style = MaterialTheme.typography.bodySmall,
-                            fontWeight = FontWeight.Bold
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = point.log.position.color.copy(alpha = 0.15f)
-                        ) {
-                            Text(
-                                text = point.log.position.code,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = point.log.position.color,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                    Text(
-                        text = "Abweichung: ${point.formattedDeviation}",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                    if (point.log.notes.isNotBlank()) {
-                        Text(
-                            text = point.log.notes,
-                            style = MaterialTheme.typography.bodySmall,
-                            fontSize = 11.sp,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                }
-            }
-
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = point.formattedRate,
-                    style = MaterialTheme.typography.titleSmall,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    color = if (point.rateSecondsPerDay != null) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                IconButton(onClick = onEdit, modifier = Modifier.testTag("edit_log_btn_${point.log.id}")) {
-                    Icon(
-                        Icons.Default.Edit,
-                        contentDescription = "Messpunkt bearbeiten",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.primary
-                    )
-                }
-                IconButton(onClick = onDelete, modifier = Modifier.testTag("delete_log_btn_${point.log.id}")) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Messpunkt löschen",
-                        modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.outline
-                    )
-                }
-            }
-        }
-    }
-}
-
 /**
  * Dialog zur nachträglichen Korrektur einer Messung.
  */
@@ -576,11 +918,10 @@ private fun EditMeasurementDialog(
     var editedWatchTimeMs by remember { mutableStateOf(log.watchTimestampMs) }
     var editedExtraValue by remember { mutableStateOf(log.extraValue.toString()) }
     var editedNotes by remember { mutableStateOf(log.notes) }
+    var editedSetId by remember { mutableStateOf(log.setId) }
     var showPosDropdown by remember { mutableStateOf(false) }
 
     val timeFormatter = remember { SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY) }
-
-    // Berechne die resultierende Abweichung live bei Änderungen
     val currentDeviationSec = (editedWatchTimeMs - log.ntpTimestampMs) / 1000.0
     val devSign = if (currentDeviationSec >= 0) "+" else ""
 
@@ -603,7 +944,38 @@ private fun EditMeasurementDialog(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
 
-                // Ziel-Uhrenzeit anpassen
+                // Messperiode (Set)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Messperiode (Set):", style = MaterialTheme.typography.bodySmall)
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = { if (editedSetId > 0) editedSetId -= 1 },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("-1", fontSize = 11.sp)
+                        }
+                        Text(
+                            text = "Periode #${editedSetId + 1}",
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.bodySmall,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        OutlinedButton(
+                            onClick = { editedSetId += 1 },
+                            contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                        ) {
+                            Text("+1", fontSize = 11.sp)
+                        }
+                    }
+                }
+
                 Card(
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)),
                     shape = RoundedCornerShape(10.dp)
@@ -641,7 +1013,6 @@ private fun EditMeasurementDialog(
 
                         Spacer(modifier = Modifier.height(6.dp))
 
-                        // Schnellkorrektur für Zeigerzeit (+/- Sekunden oder Minuten)
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -727,21 +1098,21 @@ private fun EditMeasurementDialog(
                     }
                 }
 
+                // Info-Freitext
+                OutlinedTextField(
+                    value = editedNotes,
+                    onValueChange = { editedNotes = it },
+                    label = { Text("Info-Freitext / Notiz") },
+                    maxLines = 3,
+                    modifier = Modifier.fillMaxWidth().testTag("edit_info_text")
+                )
+
                 // Zusatzwert
                 OutlinedTextField(
                     value = editedExtraValue,
                     onValueChange = { editedExtraValue = it },
                     label = { Text("Zusatzwert (z.B. Temperatur °C)") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-
-                // Notizen
-                OutlinedTextField(
-                    value = editedNotes,
-                    onValueChange = { editedNotes = it },
-                    label = { Text("Notiz") },
-                    maxLines = 2,
                     modifier = Modifier.fillMaxWidth()
                 )
             }
@@ -751,6 +1122,7 @@ private fun EditMeasurementDialog(
                 onClick = {
                     val extra = editedExtraValue.toDoubleOrNull() ?: log.extraValue
                     val updated = log.copy(
+                        setId = editedSetId,
                         watchTimestampMs = editedWatchTimeMs,
                         positionCode = editedPosition.code,
                         extraValue = extra,

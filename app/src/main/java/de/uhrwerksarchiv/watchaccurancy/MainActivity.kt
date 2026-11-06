@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -67,7 +68,7 @@ import de.uhrwerksarchiv.watchaccurancy.ui.viewmodel.WatchViewModel
 enum class ScreenTab(val title: String, val icon: ImageVector, val tag: String) {
     WATCHES("Uhren", Icons.Default.Watch, "tab_watches"),
     MEASURE("Messung", Icons.Default.PlayArrow, "tab_measure"),
-    CHARTS("Diagramme", Icons.Default.ShowChart, "tab_charts"),
+    CHARTS("Übersicht", Icons.Default.TableChart, "tab_charts"),
     BACKUP("Backup", Icons.Default.Sync, "tab_backup")
 }
 
@@ -116,6 +117,9 @@ fun WatchAccurancyApp(viewModel: WatchViewModel) {
     val chartFilterPosition by viewModel.chartFilterPosition.collectAsStateWithLifecycle()
     val importReport by viewModel.importReport.collectAsStateWithLifecycle()
     val isImporting by viewModel.isImporting.collectAsStateWithLifecycle()
+    val distinctPeriods by viewModel.distinctPeriods.collectAsStateWithLifecycle()
+    val selectedPeriodSetId by viewModel.selectedPeriodSetId.collectAsStateWithLifecycle()
+    val selectedWatchLogs by viewModel.selectedWatchLogs.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWideScreen = maxWidth > 600.dp
@@ -253,13 +257,20 @@ fun WatchAccurancyApp(viewModel: WatchViewModel) {
                                 selectedPosition = selectedPosition,
                                 targetWatchTimeMs = targetWatchTimeMs,
                                 ntpStatus = ntpStatus,
+                                existingPeriods = distinctPeriods,
                                 onSelectWatch = { viewModel.selectWatch(it) },
                                 onSetPosition = { viewModel.setPosition(it) },
                                 onAdjustTargetMinute = { viewModel.adjustTargetMinute(it) },
                                 onSetTargetToNextMinute = { viewModel.setTargetTimeToNextMinute() },
                                 onSyncNtp = { viewModel.syncNtpNow() },
-                                onRecordMeasurement = { notes, extraVal ->
-                                    viewModel.recordMeasurement(notes, extraVal)
+                                onRecordMeasurement = { notes, extraVal, startNewPeriod, targetSetId, onComplete ->
+                                    viewModel.recordMeasurement(notes, extraVal, startNewPeriod, targetSetId) { _, _ ->
+                                        onComplete()
+                                    }
+                                },
+                                onNavigateToOverview = { watchId ->
+                                    viewModel.selectWatch(watchId)
+                                    currentTab = ScreenTab.CHARTS
                                 }
                             )
                         }
@@ -271,7 +282,11 @@ fun WatchAccurancyApp(viewModel: WatchViewModel) {
                                 ratePoints = ratePoints,
                                 statistics = statistics,
                                 filterPosition = chartFilterPosition,
+                                distinctPeriods = distinctPeriods,
+                                selectedPeriodSetId = selectedPeriodSetId,
+                                allWatchLogs = selectedWatchLogs,
                                 onSelectWatch = { viewModel.selectWatch(it) },
+                                onSelectPeriod = { viewModel.selectPeriod(it) },
                                 onFilterPosition = { viewModel.setChartFilterPosition(it) },
                                 onUpdateLog = { updatedLog ->
                                     viewModel.updateMeasurementLog(updatedLog)
