@@ -19,12 +19,16 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material.icons.filled.ContentPaste
+import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Share
 import androidx.compose.material.icons.filled.Upload
@@ -35,12 +39,15 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import com.example.ui.theme.AppThemeMode
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,6 +70,8 @@ import kotlinx.coroutines.launch
 fun BackupScreen(
     importReport: ParseReport?,
     isImporting: Boolean,
+    currentThemeMode: AppThemeMode = AppThemeMode.LIGHT,
+    onSelectThemeMode: (AppThemeMode) -> Unit = {},
     onCheckBackupText: (String) -> Unit,
     onExecuteImport: (clearExisting: Boolean) -> Unit,
     onClearReport: () -> Unit,
@@ -88,6 +97,82 @@ fun BackupScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        // 0. ERSCHEINUNGSBILD / THEME-MODUS
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("theme_selection_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = when (currentThemeMode) {
+                            AppThemeMode.LIGHT -> Icons.Default.LightMode
+                            AppThemeMode.DARK -> Icons.Default.DarkMode
+                            AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                        },
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Erscheinungsbild / Design",
+                        style = MaterialTheme.typography.titleMedium,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
+
+                Text(
+                    text = "Wähle zwischen dem hellen Modus, dem dunklen Modus oder richte dich automatisch nach der Systemeinstellung deines Geräts.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    FilterChip(
+                        selected = currentThemeMode == AppThemeMode.LIGHT,
+                        onClick = { onSelectThemeMode(AppThemeMode.LIGHT) },
+                        label = { Text("Hell") },
+                        leadingIcon = {
+                            Icon(Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.weight(1f).testTag("theme_chip_light")
+                    )
+
+                    FilterChip(
+                        selected = currentThemeMode == AppThemeMode.DARK,
+                        onClick = { onSelectThemeMode(AppThemeMode.DARK) },
+                        label = { Text("Dunkel") },
+                        leadingIcon = {
+                            Icon(Icons.Default.DarkMode, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.weight(1f).testTag("theme_chip_dark")
+                    )
+
+                    FilterChip(
+                        selected = currentThemeMode == AppThemeMode.SYSTEM,
+                        onClick = { onSelectThemeMode(AppThemeMode.SYSTEM) },
+                        label = { Text("System") },
+                        leadingIcon = {
+                            Icon(Icons.Default.BrightnessAuto, contentDescription = null, modifier = Modifier.size(16.dp))
+                        },
+                        modifier = Modifier.weight(1f).testTag("theme_chip_system")
+                    )
+                }
+            }
+        }
+
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

@@ -1,5 +1,7 @@
 package de.uhrwerksarchiv.watchaccurancy.ui.screens.watches
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -46,10 +48,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import de.uhrwerksarchiv.watchaccurancy.data.model.Watch
 
 @Composable
@@ -88,7 +95,7 @@ fun WatchListScreen(
                 .padding(innerPadding)
                 .padding(horizontal = 16.dp)
         ) {
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -262,17 +269,19 @@ private fun WatchCard(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = BorderStroke(1.5.dp, Color(0xFFFFA000)),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.size(44.dp)
                     ) {
-                        Icon(
-                            Icons.Default.Watch,
+                        Image(
+                            painter = painterResource(id = R.drawable.icon),
                             contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(4.dp)
                         )
                     }
                     Column {

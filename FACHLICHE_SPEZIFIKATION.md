@@ -143,16 +143,19 @@ Repräsentiert einen einzelnen Messpunkt:
 
 ### 5.3 Uhren-Übersicht, Messperioden-Tabs & Tabellarische Messergebnisse (`ChartsScreen`)
 Die Übersichtsseite bietet, getreu dem Vorbild der ursprünglichen WatchCheck-App, eine tabellarische und grafische Übersicht:
+- **WatchCheck-Header**: Header-Banner mit Original-Uhrwerkgrafik (`background_watchcheck.jpg`), dunklem Gradienten, rundem WatchCheck-Zifferblatt-Icon (`icon.png`) und edler goldgelber Umrandung (`#FFA000`).
 - **Messperioden-Auswahl per Tabs (WatchCheck-Modus)**:
   - Horizontale Tabs zur Auswahl der jeweiligen Messperiode: `[Alle (Gesamtanzahl)]`, `[Periode 1]`, `[Periode 2]`, ...
   - Sowohl die Tabelle als auch die Diagramme und die Statistik-Karten filtern synchron auf die gewählte Periode.
-  - In einer Periode bildet die erste Messung die Referenz (`Gang = Referenz`); nachfolgende Messungen errechnen den täglichen Gang exakt innerhalb der betreffenden Periode.
-- **Spaltenstruktur der Tabelle**:
+  - In einer Periode bildet die erste Messung die Referenz (`Gang = Ref.`); nachfolgende Messungen errechnen den täglichen Gang exakt innerhalb der betreffenden Periode.
+- **Spaltenstruktur der Tabelle (WatchCheck-Layout)**:
   1. **Referenz (NTP)**: Exakter atomarer Zeitstempel **mit Sekunden** (Format: `dd.MM.yy HH:mm:ss`, z. B. `06.11.26 14:30:15`).
-  2. **Abweichung**: Absolute Abweichung der Uhr von der Atomzeit in Sekunden mit Vorzeichen (z. B. `+2.45s`).
-  3. **Täglicher Gang**: Berechnete Gangdrift in Sekunden pro Tag ($s/d$), bei der Erstmessung einer Periode als `Ref.` markiert.
+  2. **Abw. (Abweichung)**: Absolute Abweichung der Uhr von der Atomzeit in Sekunden mit Vorzeichen und **WatchCheck-Farben**: Grün (`#00AA00`) bei Vorgang ($+$) und Rot (`#AA0000`) bei Nachgang ($-$).
+  3. **Gang**: Berechnete Gangdrift in Sekunden pro Tag ($s/d$), bei der Erstmessung einer Periode als `Ref.` markiert.
   4. **Lage**: Horologischer Lagen-Code mit farbkodiertem Badge (`WORN`, `DU`, `DD`, `CU`, `CD`, `CL`, `CR`, `WINDER`).
-  5. **(I)-Info-Button**: Zeigt beim Antippen einen modalen Info-Dialog (`MeasurementInfoDialog`) mit dem vollständigen Freitext, Zusatzwerten, Referenz- und Zeigerzeit sowie Lageninformationen.
+  5. **Temp.**: Anzeige des Zusatzwerts bzw. der Temperatur (z. B. `21°` oder `-`).
+  6. **Aktion**: Enthält den `(i)`-Info-Button für Freitexte und Details sowie das `Mülleimer`-Icon zum schnellen, direkten Löschen des Eintrags.
+- **WatchCheck Result-Footer**: Fußzeile unter der Tabelle mit mittlerem Gang der Periode und Dauer des Beobachtungszeitraums in Tagen.
 - **Direkte Zeilen-Editierung**: Durch Antippen einer beliebigen Zeile in der Tabelle öffnet sich sofort der Korrektur-Dialog (`EditMeasurementDialog`).
 
 ### 5.4 Nachträgliche Korrektur von Messpunkten (`EditMeasurementDialog`)
@@ -161,9 +164,22 @@ Ermöglicht das unkomplizierte Nachjustieren von:
 - Messperiode (`setId`): Zuordnung zu einer anderen Periode oder Neuanlage.
 - Uhrenlage (`positionCode`).
 - Info-Freitext und Zusatzwert (Temperatur).
+- Drei Aktionsschaltflächen im Fußbereich gemäß WatchCheck-Vorlage:
+  1. **Löschen**: Ermöglicht das direkte Entfernen der Messung über die Sicherheitsabfrage.
+  2. **Abbrechen**: Verwirft alle Änderungen.
+  3. **Speichern**: Übernimmt die korrigierten Parameter in die lokale Datenbank.
 - Alle Diagramme, Gangraten und COSC-Statistiken werden bei Änderungen in Echtzeit neu berechnet.
 
-### 5.5 Interaktive Diagramme & Horologische Kennzahlen
+### 5.5 Nachträgliches Löschen von Messpunkten
+Messungen können an drei ergonomischen Stellen nachträglich gelöscht werden:
+1. **Direkt in der Tabelle**: Über das Mülleimer-Icon in der Spalte "Aktion" jeder Zeile.
+2. **Im Info-Dialog (`MeasurementInfoDialog`)**: Über die rote Schaltfläche "Löschen" neben dem "Bearbeiten"-Button.
+3. **Im Korrektur-Dialog (`EditMeasurementDialog`)**: Über die "Löschen"-Schaltfläche in der Aktionsleiste.
+- **Sicherheitsbestätigung**: Vor dem endgültigen Löschen erscheint der Original-Sicherheitsdialog mit sekundengenauem Zeitstempel:
+  *„Möchten Sie wirklich den Logeintrag vom dd.MM.yyyy HH:mm:ss löschen?“*
+- Nach dem Löschen erfolgt eine Snack-Nachricht (`Logeintrag vom ... erfolgreich gelöscht.`), und die Tabelle, Statistiken und Diagramme aktualisieren sich unmittelbar.
+
+### 5.6 Interaktive Diagramme & Horologische Kennzahlen
 Neben der Tabellenansicht steht ein Umschalter auf das **Liniendiagramm** bereit:
 - Vollständige Synchronisation mit den **Messperioden-Tabs** (Darstellung der gewählten Periode oder Gesamthistorie).
 - Umschaltung: **Gangabweichung ($s/d$)** vs. **Kumulierte Gesamtabweichung ($s$)**.
@@ -171,7 +187,7 @@ Neben der Tabellenansicht steht ein Umschalter auf das **Liniendiagramm** bereit
 - Horologische Statistik-Karte (mittlerer Gang, Min/Max, Gesamtdrift, COSC-Konformitätsprüfung).
 - Lagenvergleichs-Tabelle mit Durchschnittswerten je Position.
 
-### 5.6 Backup-Import & Export (`BackupScreen`)
+### 5.7 Backup-Import & Export (`BackupScreen`)
 - **Historischer WatchCheck-Parser**:
   Liest zeilenweise Textdateien im Format:
   ```text
@@ -184,10 +200,24 @@ Neben der Tabellenansicht steht ein Umschalter auf das **Liniendiagramm** bereit
 - **Import-Vorschau**: Zeigt vor dem Schreibvorgang Anzahl erkannter Uhren, Messpunkte und Warnungen.
 - **Export**: Erzeugt identisch formatierte Text-Dateien zum Kopieren in die Zwischenablage oder Teilen per Android-Share-Sheet (`ACTION_SEND`).
 
-### 5.7 Design-System & Visuelle Identität (WatchCheck Orange)
-- **Klassisches Farbschema**: Wiedererkennbarer, kontraststarker Look der Original-App mit leuchtendem Signal-Orange (`#FF6D00` / `#E65100`), tiefem Anthrazit (`#141414` / `#1F1F1F`) und Akzenten in Gold/Amber.
-- **Erfassungs-Button**: Leuchtendes Radial-Gradient in WatchCheck-Orange für maximale Übersicht und taktile Zielgenauigkeit im Moment des Sekundenzeigersprungs.
-- **App-Icon**: Klassisches WatchCheck-Zifferblatt mit Zeigern und Präzisions-Häkchen auf leuchtendem Orange-Hintergrund als adaptives Android-Icon mit Raster-Fallbacks für alle Dichten.
+### 5.8 Design-System, Heller & Dunkler Modus (WatchCheck2 Design & Theming)
+- **Heller Modus (Light Mode) & Dunkler Modus (Dark Mode)**:
+  - **Heller Modus (Standard)**: Originalgetreue Umsetzung der WatchCheck2-Applikation (`VERSION_2_0`). Strahlend weißer Kartenhintergrund (`#FFFFFF`), leichter Material-Hintergrund (`#FAFAFA`), Material Amber Kopfleiste (`#FFA000` / `#FFC107`) und kontraststarke Typografie (`#212121`).
+  - **Reines Uhren-Icon auf weißem Grund**: Sowohl das App-Launcher-Icon als auch die Zifferblatt-Symbole in den Uhrenkarten und der Titelleiste erscheinen auf reinem **weißem Hintergrund** (`#FFFFFF`) mit goldgelber Amber-Umrandung (`#FFA000`), ohne störende orangefarbene Hintergründe.
+  - **Kein künstlicher dunkler Banner**: Dunkle Bildleisten und Schriftzüge wie "WATCHCHECK" wurden entfernt. Die Uhrenübersicht beginnt sauber und aufgeräumt mit der Bestandsübersicht.
+  - **Dunkler Modus**: Kontraststarkes AMOLED-Anthrazit (`#141414` / `#1F1F1F`) mit warmen WatchCheck-Amber-Akzenten (`#FFA000`).
+  - **Systemstandard**: Automatische Umschaltung basierend auf der Systemeinstellung von Android (Tag/Nacht).
+  - **Schnell-Umschalter in der TopAppBar**: Über das Sonnen-/Mondsichel-Symbol in der Kopfzeile kann das Design jederzeit mit einem Klick zwischen Hell, Dunkel und System umgeschaltet werden.
+  - **Einstellungen im Backup-Bereich**: Direkte Auswahl über FilterChips mit persistenter Speicherung der Benutzereinstellung in den Android `SharedPreferences`.
+- **Authentische Grafik-Assets**:
+  - `icon.png`: Originales kreisrundes Zifferblatt-Logo von WatchCheck mit feinen Zeigern und Indizes auf weißem Grund.
+  - `ic_notification.png`: Originales Benachrichtigungssymbol für Messungen.
+  - `ic_launcher.png` und `ic_watchcheck_foreground.png`: Originales Launcher-Icon mit voller Adaptivitätsunterstützung für alle Displaydichten (mdpi bis xxxhdpi) auf weißem Hintergrund.
+- **WatchCheck-Farbschema**:
+  - Primärakzente in **Material Amber 500 / 700** (`#FFC107` / `#FFA000`) für Kopfzeilen, Tabellenköpfe und Ränder.
+  - **Material Blue 500** (`#2196F3`) für Akzente und Sekundäraktionen.
+  - **Grün `#00AA00`** für positive Abweichungen (Vorgang).
+  - **Rot `#AA0000`** für negative Abweichungen (Nachgang).
 
 ---
 

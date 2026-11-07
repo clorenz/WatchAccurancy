@@ -6,7 +6,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -18,8 +21,14 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.res.painterResource
+import com.example.R
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.BrightnessAuto
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShowChart
@@ -27,6 +36,8 @@ import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +68,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.WatchAccurancyTheme
 import de.uhrwerksarchiv.watchaccurancy.ui.screens.backup.BackupScreen
 import de.uhrwerksarchiv.watchaccurancy.ui.screens.charts.ChartsScreen
@@ -81,8 +93,9 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
 
         setContent {
-            WatchAccurancyTheme {
-                WatchAccurancyApp(viewModel = viewModel)
+            val themeMode by viewModel.themeMode.collectAsStateWithLifecycle()
+            WatchAccurancyTheme(themeMode = themeMode) {
+                WatchAccurancyApp(viewModel = viewModel, currentThemeMode = themeMode)
             }
         }
     }
@@ -90,7 +103,7 @@ class MainActivity : ComponentActivity() {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun WatchAccurancyApp(viewModel: WatchViewModel) {
+fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode) {
     var currentTab by remember { mutableStateOf(ScreenTab.WATCHES) }
     val snackbarHostState = remember { SnackbarHostState() }
 
@@ -128,20 +141,39 @@ fun WatchAccurancyApp(viewModel: WatchViewModel) {
             contentWindowInsets = WindowInsets.safeDrawing,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
+                val isDark = currentThemeMode == AppThemeMode.DARK || (currentThemeMode == AppThemeMode.SYSTEM && isSystemInDarkTheme())
                 CenterAlignedTopAppBar(
                     title = {
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
+                            Surface(
+                                shape = CircleShape,
+                                color = Color.White,
+                                border = BorderStroke(1.5.dp, Color(0xFFFFA000)),
+                                shadowElevation = 1.dp,
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Image(
+                                    painter = painterResource(id = R.drawable.icon),
+                                    contentDescription = null,
+                                    modifier = Modifier.padding(2.5.dp)
+                                )
+                            }
                             Text(
                                 text = "WatchAccurancy",
                                 fontWeight = FontWeight.Bold,
-                                style = MaterialTheme.typography.titleLarge
+                                style = MaterialTheme.typography.titleLarge,
+                                color = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF212121)
                             )
                             Surface(
                                 shape = RoundedCornerShape(12.dp),
-                                color = if (ntpStatus.isSynchronized) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.2f)
+                                color = if (isDark) {
+                                    if (ntpStatus.isSynchronized) Color(0xFF10B981).copy(alpha = 0.2f) else Color(0xFFF59E0B).copy(alpha = 0.2f)
+                                } else {
+                                    Color.Black.copy(alpha = 0.12f)
+                                }
                             ) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
@@ -161,16 +193,75 @@ fun WatchAccurancyApp(viewModel: WatchViewModel) {
                                         style = MaterialTheme.typography.labelSmall,
                                         fontSize = 9.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (ntpStatus.isSynchronized) Color(0xFF10B981) else Color(0xFFF59E0B)
+                                        color = if (isDark) (if (ntpStatus.isSynchronized) Color(0xFF10B981) else Color(0xFFF59E0B)) else Color(0xFF212121)
                                     )
                                 }
                             }
                         }
                     },
                     colors = TopAppBarDefaults.centerAlignedTopAppBarColors(
-                        containerColor = MaterialTheme.colorScheme.surface
+                        containerColor = if (isDark) MaterialTheme.colorScheme.surface else Color(0xFFFFA000),
+                        titleContentColor = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF212121),
+                        actionIconContentColor = if (isDark) MaterialTheme.colorScheme.onSurface else Color(0xFF212121)
                     ),
                     actions = {
+                        var showThemeMenu by remember { mutableStateOf(false) }
+
+                        Box {
+                            IconButton(
+                                onClick = { showThemeMenu = true },
+                                modifier = Modifier.testTag("theme_mode_button")
+                            ) {
+                                Icon(
+                                    imageVector = when (currentThemeMode) {
+                                        AppThemeMode.LIGHT -> Icons.Default.LightMode
+                                        AppThemeMode.DARK -> Icons.Default.DarkMode
+                                        AppThemeMode.SYSTEM -> Icons.Default.BrightnessAuto
+                                    },
+                                    contentDescription = "Design-Modus wechseln (aktuell: ${currentThemeMode.title})"
+                                )
+                            }
+
+                            DropdownMenu(
+                                expanded = showThemeMenu,
+                                onDismissRequest = { showThemeMenu = false }
+                            ) {
+                                DropdownMenuItem(
+                                    text = { Text("Heller Modus") },
+                                    leadingIcon = { Icon(Icons.Default.LightMode, contentDescription = null) },
+                                    trailingIcon = if (currentThemeMode == AppThemeMode.LIGHT) {
+                                        { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                    } else null,
+                                    onClick = {
+                                        viewModel.setThemeMode(AppThemeMode.LIGHT)
+                                        showThemeMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Dunkler Modus") },
+                                    leadingIcon = { Icon(Icons.Default.DarkMode, contentDescription = null) },
+                                    trailingIcon = if (currentThemeMode == AppThemeMode.DARK) {
+                                        { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                    } else null,
+                                    onClick = {
+                                        viewModel.setThemeMode(AppThemeMode.DARK)
+                                        showThemeMenu = false
+                                    }
+                                )
+                                DropdownMenuItem(
+                                    text = { Text("Systemstandard") },
+                                    leadingIcon = { Icon(Icons.Default.BrightnessAuto, contentDescription = null) },
+                                    trailingIcon = if (currentThemeMode == AppThemeMode.SYSTEM) {
+                                        { Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
+                                    } else null,
+                                    onClick = {
+                                        viewModel.setThemeMode(AppThemeMode.SYSTEM)
+                                        showThemeMenu = false
+                                    }
+                                )
+                            }
+                        }
+
                         IconButton(onClick = { viewModel.syncNtpNow() }) {
                             Icon(Icons.Default.Refresh, contentDescription = "NTP abgleichen")
                         }
@@ -299,6 +390,8 @@ fun WatchAccurancyApp(viewModel: WatchViewModel) {
                             BackupScreen(
                                 importReport = importReport,
                                 isImporting = isImporting,
+                                currentThemeMode = currentThemeMode,
+                                onSelectThemeMode = { viewModel.setThemeMode(it) },
                                 onCheckBackupText = { viewModel.checkBackupText(it) },
                                 onExecuteImport = { clearExisting ->
                                     viewModel.executeImport(clearExisting)

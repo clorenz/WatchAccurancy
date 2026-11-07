@@ -1,9 +1,11 @@
 package de.uhrwerksarchiv.watchaccurancy.ui.viewmodel
 
 import android.app.Application
+import android.content.Context
 import android.os.SystemClock
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.ui.theme.AppThemeMode
 import de.uhrwerksarchiv.watchaccurancy.data.backup.BackupParser
 import de.uhrwerksarchiv.watchaccurancy.data.backup.ParseReport
 import de.uhrwerksarchiv.watchaccurancy.data.local.AppDatabase
@@ -39,6 +41,33 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: WatchRepository
     val ntpManager: NtpManager
+    private val themePrefs = application.getSharedPreferences("watchaccurancy_theme_prefs", Context.MODE_PRIVATE)
+
+    private val _themeMode = MutableStateFlow(
+        when (themePrefs.getString("theme_mode", "LIGHT")) {
+            "DARK" -> AppThemeMode.DARK
+            "SYSTEM" -> AppThemeMode.SYSTEM
+            else -> AppThemeMode.LIGHT
+        }
+    )
+    val themeMode: StateFlow<AppThemeMode> = _themeMode.asStateFlow()
+
+    fun setThemeMode(mode: AppThemeMode) {
+        _themeMode.value = mode
+        themePrefs.edit().putString("theme_mode", mode.name).apply()
+        viewModelScope.launch {
+            _uiEvents.emit(UiMessage.Success("Design: ${mode.title} aktiviert"))
+        }
+    }
+
+    fun toggleThemeMode() {
+        val next = when (_themeMode.value) {
+            AppThemeMode.LIGHT -> AppThemeMode.DARK
+            AppThemeMode.DARK -> AppThemeMode.LIGHT
+            AppThemeMode.SYSTEM -> AppThemeMode.LIGHT
+        }
+        setThemeMode(next)
+    }
 
     init {
         val database = AppDatabase.getInstance(application)
@@ -307,8 +336,18 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     fun deleteLog(logId: Long) {
         viewModelScope.launch {
+            val watchId = _selectedWatchId.value
+            val existing = if (watchId != null) repository.getLogsForWatchList(watchId) else emptyList()
+            val target = existing.firstOrNull { it.id == logId }
+            val timeStr = if (target != null) RateCalculator.formatDateTimeWithSeconds(target.ntpTimestampMs) else ""
+
             repository.deleteLogById(logId)
-            _uiEvents.emit(UiMessage.Success("Messpunkt gelöscht."))
+            val msg = if (timeStr.isNotBlank()) {
+                "Logeintrag vom $timeStr erfolgreich gelöscht."
+            } else {
+                "Messpunkt erfolgreich gelöscht."
+            }
+            _uiEvents.emit(UiMessage.Success(msg))
         }
     }
 

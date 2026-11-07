@@ -1,5 +1,7 @@
 package de.uhrwerksarchiv.watchaccurancy.ui.screens.charts
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -60,13 +62,17 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.R
 import de.uhrwerksarchiv.watchaccurancy.data.model.MeasurementLog
 import de.uhrwerksarchiv.watchaccurancy.data.model.PositionStatistic
 import de.uhrwerksarchiv.watchaccurancy.data.model.RateCalculator
@@ -120,51 +126,94 @@ fun ChartsScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
-        // 1. WATCH SELECTOR HEADER
-        OutlinedCard(
+        // 1. WATCH SELECTOR HEADER (WatchCheck Material Design)
+        Card(
             modifier = Modifier
                 .fillMaxWidth()
                 .clickable { showWatchDropdown = true }
                 .testTag("chart_watch_selector"),
-            shape = RoundedCornerShape(14.dp)
+            shape = RoundedCornerShape(14.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            border = BorderStroke(1.5.dp, Color(0xFFFFA000)),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
         ) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(14.dp),
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    modifier = Modifier.weight(1f)
                 ) {
-                    Icon(
-                        Icons.Default.Watch,
-                        contentDescription = null,
-                        tint = MaterialTheme.colorScheme.primary
-                    )
+                    // WatchCheck circular clock icon on pure white background
+                    Surface(
+                        shape = CircleShape,
+                        color = Color.White,
+                        border = BorderStroke(1.5.dp, Color(0xFFFFA000)),
+                        shadowElevation = 1.dp,
+                        modifier = Modifier.size(52.dp)
+                    ) {
+                        Image(
+                            painter = painterResource(id = R.drawable.icon),
+                            contentDescription = "WatchCheck Icon",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(5.dp)
+                        )
+                    }
+
                     Column {
                         Text(
-                            text = "Ausgewählte Uhr:",
+                            text = "GEWÄHLTE UHR",
                             style = MaterialTheme.typography.labelSmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                            letterSpacing = 1.2.sp,
+                            color = Color(0xFFFFA000), // Material Amber aus WatchCheck
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
                             text = selectedWatch?.model ?: "Keine Uhr gewählt",
                             style = MaterialTheme.typography.titleMedium,
-                            fontWeight = FontWeight.Bold
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
                         )
-                        if (selectedWatch != null && selectedWatch.caliber.isNotBlank()) {
-                            Text(
-                                text = "Werk: ${selectedWatch.caliber}",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            if (selectedWatch != null && selectedWatch.caliber.isNotBlank()) {
+                                Text(
+                                    text = "Werk: ${selectedWatch.caliber}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            if (selectedWatch != null && selectedWatch.serialNumber.isNotBlank()) {
+                                Text(
+                                    text = "SN: ${selectedWatch.serialNumber}",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
                         }
                     }
                 }
-                Icon(Icons.Default.KeyboardArrowDown, contentDescription = null)
+
+                Surface(
+                    shape = CircleShape,
+                    color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = "Uhr wählen",
+                            tint = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
             }
 
             DropdownMenu(
@@ -368,51 +417,64 @@ fun ChartsScreen(
                     elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        // TABELLEN-HEADER
+                        // TABELLEN-HEADER (WatchCheck Original-Design in Amber #FFA000)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.5f))
-                                .padding(horizontal = 8.dp, vertical = 10.dp),
+                                .background(Color(0xFFFFA000))
+                                .padding(horizontal = 8.dp, vertical = 9.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
                                 text = "Referenz (NTP)",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
-                                modifier = Modifier.weight(1.5f)
+                                color = Color.Black,
+                                modifier = Modifier.weight(1.35f)
                             )
                             Text(
-                                text = "Abweich.",
+                                text = "Abw.",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                textAlign = TextAlign.End,
+                                modifier = Modifier.weight(0.75f)
+                            )
+                            Text(
+                                text = "Gang",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
                                 textAlign = TextAlign.End,
                                 modifier = Modifier.weight(0.9f)
-                            )
-                            Text(
-                                text = "Tägl. Gang",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontWeight = FontWeight.Bold,
-                                textAlign = TextAlign.End,
-                                modifier = Modifier.weight(1.0f)
                             )
                             Text(
                                 text = "Lage",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
+                                color = Color.Black,
                                 textAlign = TextAlign.Center,
-                                modifier = Modifier.weight(0.8f)
+                                modifier = Modifier.weight(0.7f)
                             )
-                            Box(modifier = Modifier.width(36.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = "Info",
-                                    style = MaterialTheme.typography.labelSmall,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
+                            Text(
+                                text = "Temp.",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.weight(0.6f)
+                            )
+                            Text(
+                                text = "Aktion",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black,
+                                textAlign = TextAlign.Center,
+                                modifier = Modifier.width(64.dp)
+                            )
                         }
 
-                        HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+                        HorizontalDivider(color = Color(0xFFE08A00))
 
                         // TABELLEN-ZEILEN (Chronologisch absteigend: neueste zuerst)
                         ratePoints.reversed().forEachIndexed { index, point ->
@@ -424,7 +486,7 @@ fun ChartsScreen(
                                     .fillMaxWidth()
                                     .background(rowBg)
                                     .clickable { logToEdit = point.log }
-                                    .padding(horizontal = 8.dp, vertical = 8.dp)
+                                    .padding(horizontal = 8.dp, vertical = 6.dp)
                                     .testTag("table_row_${point.log.id}"),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
@@ -433,25 +495,25 @@ fun ChartsScreen(
                                 Text(
                                     text = dateFmt.format(Date(point.log.ntpTimestampMs)),
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontSize = 10.5.sp,
+                                    fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Medium,
                                     color = MaterialTheme.colorScheme.onSurface,
-                                    modifier = Modifier.weight(1.5f)
+                                    modifier = Modifier.weight(1.35f)
                                 )
 
-                                // 2. ABWEICHUNG (absolute Abweichung in s)
+                                // 2. ABWEICHUNG (WatchCheck Farben: Grün #00AA00 für Plus, Rot #AA0000 für Minus)
                                 val devSec = point.cumulativeDeviationSeconds
                                 val devSign = if (devSec >= 0) "+" else ""
                                 Text(
                                     text = String.format(Locale.US, "%s%.2fs", devSign, devSec),
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.End,
-                                    color = if (devSec >= 0) MaterialTheme.colorScheme.primary else Color(0xFFE65100),
-                                    modifier = Modifier.weight(1.0f)
+                                    color = if (devSec >= 0) Color(0xFF00AA00) else Color(0xFFAA0000),
+                                    modifier = Modifier.weight(0.75f)
                                 )
 
                                 // 3. TÄGLICHER GANG (s/d)
@@ -465,17 +527,17 @@ fun ChartsScreen(
                                 Text(
                                     text = rateText,
                                     style = MaterialTheme.typography.bodySmall,
-                                    fontSize = 12.sp,
+                                    fontSize = 11.5.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Bold,
                                     textAlign = TextAlign.End,
                                     color = if (point.rateSecondsPerDay != null) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
-                                    modifier = Modifier.weight(1.1f)
+                                    modifier = Modifier.weight(0.9f)
                                 )
 
                                 // 4. POSITION (Uhrenlage)
                                 Box(
-                                    modifier = Modifier.weight(0.9f),
+                                    modifier = Modifier.weight(0.7f),
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Surface(
@@ -485,7 +547,7 @@ fun ChartsScreen(
                                         Text(
                                             text = point.log.position.code,
                                             style = MaterialTheme.typography.labelSmall,
-                                            fontSize = 10.sp,
+                                            fontSize = 9.5.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = point.log.position.color,
                                             modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
@@ -493,23 +555,95 @@ fun ChartsScreen(
                                     }
                                 }
 
-                                // 5. (I) INFO-BUTTON
+                                // 5. TEMPERATUR
+                                val tempText = if (point.log.extraValue != 0.0) {
+                                    "${point.log.extraValue.toInt()}°"
+                                } else {
+                                    "-"
+                                }
+                                Text(
+                                    text = tempText,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    textAlign = TextAlign.Center,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.weight(0.6f)
+                                )
+
+                                // 6. AKTIONEN: (I) INFO & LÖSCHEN
                                 val hasInfo = point.log.notes.isNotBlank() || point.log.extraValue != 0.0
-                                IconButton(
-                                    onClick = { infoLogToShow = point },
-                                    modifier = Modifier
-                                        .size(36.dp)
-                                        .testTag("info_btn_${point.log.id}")
+                                Row(
+                                    modifier = Modifier.width(64.dp),
+                                    horizontalArrangement = Arrangement.Center,
+                                    verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Icon(
-                                        Icons.Default.Info,
-                                        contentDescription = "Zusatzinfo",
-                                        tint = if (hasInfo) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline.copy(alpha = 0.5f),
-                                        modifier = Modifier.size(20.dp)
-                                    )
+                                    IconButton(
+                                        onClick = { infoLogToShow = point },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .testTag("info_btn_${point.log.id}")
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Info,
+                                            contentDescription = "Zusatzinfo",
+                                            tint = if (hasInfo) Color(0xFFFFA000) else MaterialTheme.colorScheme.outline.copy(alpha = 0.45f),
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
+
+                                    IconButton(
+                                        onClick = { logToDelete = point.log },
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .testTag("delete_btn_${point.log.id}")
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Delete,
+                                            contentDescription = "Messpunkt löschen",
+                                            tint = MaterialTheme.colorScheme.error.copy(alpha = 0.75f),
+                                            modifier = Modifier.size(17.dp)
+                                        )
+                                    }
                                 }
                             }
                             HorizontalDivider(color = MaterialTheme.colorScheme.outline.copy(alpha = 0.1f))
+                        }
+
+                        // WATCHCHECK RESULT FOOTER (Mittlerer Gang & Beobachtungsdauer)
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f))
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val avgRate = statistics.averageRatePerDay
+                            val avgText = if (avgRate != null) {
+                                val s = if (avgRate >= 0) "+" else ""
+                                String.format(Locale.US, "Ø Gang: %s%.2f s/d", s, avgRate)
+                            } else {
+                                "Ø Gang: ---"
+                            }
+                            Text(
+                                text = avgText,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.Bold,
+                                color = if (avgRate != null && avgRate in -4.0..6.0) Color(0xFF00AA00) else MaterialTheme.colorScheme.primary
+                            )
+
+                            val days = statistics.totalObservationDays
+                            val obsText = if (days != null) {
+                                String.format(Locale.US, "Dauer: %.1f Tage", days)
+                            } else {
+                                "Dauer: ---"
+                            }
+                            Text(
+                                text = obsText,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
                     }
                 }
@@ -687,16 +821,31 @@ fun ChartsScreen(
                 }
             },
             confirmButton = {
-                Button(
-                    onClick = {
-                        val toEdit = log
-                        infoLogToShow = null
-                        logToEdit = toEdit
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    OutlinedButton(
+                        onClick = {
+                            val toDel = log
+                            infoLogToShow = null
+                            logToDelete = toDel
+                        },
+                        colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                        modifier = Modifier.testTag("dialog_delete_btn")
+                    ) {
+                        Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Löschen")
                     }
-                ) {
-                    Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text("Bearbeiten")
+                    Button(
+                        onClick = {
+                            val toEdit = log
+                            infoLogToShow = null
+                            logToEdit = toEdit
+                        }
+                    ) {
+                        Icon(Icons.Default.Edit, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Bearbeiten")
+                    }
                 }
             },
             dismissButton = {
@@ -715,23 +864,40 @@ fun ChartsScreen(
             onConfirm = { updated ->
                 onUpdateLog(updated)
                 logToEdit = null
+            },
+            onDelete = {
+                val toDel = log
+                logToEdit = null
+                logToDelete = toDel
             }
         )
     }
 
-    // 3. LÖSCHEN-DIALOG
+    // 3. LÖSCHEN-DIALOG (WatchCheck Original-Dialog)
     logToDelete?.let { log ->
+        val timeStr = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date(log.ntpTimestampMs))
         AlertDialog(
             onDismissRequest = { logToDelete = null },
-            title = { Text("Messpunkt löschen?") },
-            text = { Text("Diesen Messpunkt vom ${RateCalculator.formatDateTime(log.ntpTimestampMs)} löschen?") },
+            title = {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
+                    Text("Messpunkt löschen", fontWeight = FontWeight.Bold)
+                }
+            },
+            text = {
+                Text("Möchten Sie wirklich den Logeintrag vom $timeStr löschen?")
+            },
             confirmButton = {
                 Button(
                     onClick = {
                         onDeleteLog(log.id)
                         logToDelete = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("confirm_delete_btn")
                 ) {
                     Text("Löschen")
                 }
@@ -912,7 +1078,8 @@ private fun PositionStatsCard(positionStats: Map<WatchPosition, PositionStatisti
 private fun EditMeasurementDialog(
     log: MeasurementLog,
     onDismiss: () -> Unit,
-    onConfirm: (MeasurementLog) -> Unit
+    onConfirm: (MeasurementLog) -> Unit,
+    onDelete: () -> Unit
 ) {
     var editedPosition by remember { mutableStateOf(log.position) }
     var editedWatchTimeMs by remember { mutableStateOf(log.watchTimestampMs) }
@@ -1131,12 +1298,23 @@ private fun EditMeasurementDialog(
                     onConfirm(updated)
                 }
             ) {
-                Text("Änderungen speichern")
+                Text("Speichern")
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text("Abbrechen")
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                OutlinedButton(
+                    onClick = onDelete,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),
+                    modifier = Modifier.testTag("edit_dialog_delete_btn")
+                ) {
+                    Icon(Icons.Default.Delete, contentDescription = null, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text("Löschen")
+                }
+                TextButton(onClick = onDismiss) {
+                    Text("Abbrechen")
+                }
             }
         }
     )

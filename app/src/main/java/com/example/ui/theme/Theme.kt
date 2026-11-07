@@ -28,35 +28,49 @@ private val DarkColorScheme = darkColorScheme(
     surfaceVariant = WatchCheckDarkSurfaceVariant,
     onSurfaceVariant = Color(0xFFD5D5D5),
     outline = Color(0xFF666666),
+    outlineVariant = Color(0xFF383838),
     error = PrecisionRed
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = WatchCheckOrangePrimary,
-    onPrimary = Color.White,
-    primaryContainer = Color(0xFFFFE0B2),
-    onPrimaryContainer = Color(0xFF5A1A00),
-    secondary = Color(0xFFFB8C00),
+    primary = Color(0xFFFFA000), // Material Amber 700 aus WatchCheck
+    onPrimary = Color(0xFF212121),
+    primaryContainer = Color(0xFFFFECB3), // Material Amber 100
+    onPrimaryContainer = Color(0xFF3E2723),
+    secondary = Color(0xFF2196F3), // Material Blue 500 aus WatchCheck
     onSecondary = Color.White,
-    secondaryContainer = Color(0xFFFFF3E0),
-    onSecondaryContainer = Color(0xFF7B3300),
-    tertiary = Color(0xFFFF9800),
-    background = WatchCheckLightBg,
-    onBackground = Color(0xFF1C1B1F),
-    surface = WatchCheckLightSurface,
-    onSurface = Color(0xFF1C1B1F),
-    surfaceVariant = WatchCheckLightSurfaceVariant,
-    onSurfaceVariant = Color(0xFF49454F),
-    outline = Color(0xFF79747E),
-    error = PrecisionRed
+    secondaryContainer = Color(0xFFE3F2FD),
+    onSecondaryContainer = Color(0xFF0D47A1),
+    tertiary = Color(0xFFFFC107), // Material Amber 500 aus WatchCheck
+    background = Color(0xFFFAFAFA), // Material light background
+    onBackground = Color(0xFF212121), // Material black 87%
+    surface = Color(0xFFFFFFFF), // Reine weiße Kartenoberfläche
+    onSurface = Color(0xFF212121),
+    surfaceVariant = Color(0xFFF5F5F5),
+    onSurfaceVariant = Color(0xFF616161),
+    outline = Color(0xFFBDBDBD),
+    outlineVariant = Color(0xFFEEEEEE),
+    error = Color(0xFFAA0000) // measure_red aus WatchCheck
 )
+
+enum class AppThemeMode(val title: String) {
+    LIGHT("Heller Modus"),
+    DARK("Dunkler Modus"),
+    SYSTEM("Systemstandard")
+}
 
 @Composable
 fun WatchAccurancyTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
+    themeMode: AppThemeMode = AppThemeMode.LIGHT,
     dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
+    val darkTheme = when (themeMode) {
+        AppThemeMode.LIGHT -> false
+        AppThemeMode.DARK -> true
+        AppThemeMode.SYSTEM -> isSystemInDarkTheme()
+    }
+
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
             val context = LocalContext.current
