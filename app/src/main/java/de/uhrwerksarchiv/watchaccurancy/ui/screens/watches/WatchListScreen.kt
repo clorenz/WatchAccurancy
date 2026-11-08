@@ -63,6 +63,7 @@ import de.uhrwerksarchiv.watchaccurancy.data.model.Watch
 fun WatchListScreen(
     watches: List<Watch>,
     selectedWatchId: Long?,
+    latestMeasurementTimestamps: Map<Long, Long> = emptyMap(),
     onSelectWatch: (Long) -> Unit,
     onAddWatch: (String, String, String, String) -> Unit,
     onUpdateWatch: (Watch) -> Unit,
@@ -140,9 +141,11 @@ fun WatchListScreen(
                 ) {
                     items(watches, key = { it.id }) { watch ->
                         val isSelected = watch.id == selectedWatchId
+                        val latestTimestamp = latestMeasurementTimestamps[watch.id]
                         WatchCard(
                             watch = watch,
                             isSelected = isSelected,
+                            latestMeasurementMs = latestTimestamp,
                             onSelect = { onSelectWatch(watch.id) },
                             onEdit = { watchToEdit = watch },
                             onDelete = { watchToDelete = watch },
@@ -234,6 +237,7 @@ fun WatchListScreen(
 private fun WatchCard(
     watch: Watch,
     isSelected: Boolean,
+    latestMeasurementMs: Long? = null,
     onSelect: () -> Unit,
     onEdit: () -> Unit,
     onDelete: () -> Unit,
@@ -318,6 +322,26 @@ private fun WatchCard(
                                     )
                                 }
                             }
+                        }
+
+                        // Letztes Messdatum
+                        Spacer(modifier = Modifier.height(3.dp))
+                        if (latestMeasurementMs != null && latestMeasurementMs > 0L) {
+                            val dateFmt = remember { java.text.SimpleDateFormat("dd.MM.yy HH:mm", java.util.Locale.GERMANY) }
+                            Text(
+                                text = "Letzte Messung: ${dateFmt.format(java.util.Date(latestMeasurementMs))}",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 11.sp,
+                                color = Color(0xFFFFA000),
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        } else {
+                            Text(
+                                text = "Noch keine Messungen",
+                                style = MaterialTheme.typography.labelSmall,
+                                fontSize = 11.sp,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                            )
                         }
                     }
                 }
@@ -444,7 +468,7 @@ private fun EmptyWatchesCard(
                 onClick = onLoadSample,
                 modifier = Modifier.fillMaxWidth().testTag("empty_load_sample_btn")
             ) {
-                Text("Beispiel-Uhren & Logs laden (Rolex, Omega, etc.)")
+                Text("Beispiel-Uhren & Messwerte laden (Chronograph, Automatik)")
             }
         }
     }
@@ -477,14 +501,14 @@ private fun WatchEditDialog(
                 OutlinedTextField(
                     value = model,
                     onValueChange = { model = it },
-                    label = { Text("Name / Modell (z.B. Rolex Submariner)*") },
+                    label = { Text("Name / Modell (z.B. Fliegeruhr Automatik)*") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("input_watch_model")
                 )
                 OutlinedTextField(
                     value = caliber,
                     onValueChange = { caliber = it },
-                    label = { Text("Kaliber / Werk (z.B. ETA 2824-2, Cal. 3135)") },
+                    label = { Text("Kaliber / Werk (z.B. Automatik 2824-2, Handaufzug)") },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("input_watch_caliber")
                 )

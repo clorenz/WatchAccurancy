@@ -105,10 +105,10 @@ fun ChartsScreen(
     onFilterPosition: (WatchPosition?) -> Unit,
     onUpdateLog: (MeasurementLog) -> Unit,
     onDeleteLog: (Long) -> Unit,
-    initialViewMode: OverviewViewMode = OverviewViewMode.TABLE,
+    viewMode: OverviewViewMode = OverviewViewMode.TABLE,
+    onViewModeChanged: (OverviewViewMode) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
-    var viewMode by remember { mutableStateOf(initialViewMode) }
     var chartMetric by remember { mutableStateOf(ChartMetric.RATE_PER_DAY) }
     var showWatchDropdown by remember { mutableStateOf(false) }
 
@@ -246,7 +246,7 @@ fun ChartsScreen(
         ) {
             Tab(
                 selected = viewMode == OverviewViewMode.TABLE,
-                onClick = { viewMode = OverviewViewMode.TABLE },
+                onClick = { onViewModeChanged(OverviewViewMode.TABLE) },
                 text = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -260,7 +260,7 @@ fun ChartsScreen(
             )
             Tab(
                 selected = viewMode == OverviewViewMode.CHART,
-                onClick = { viewMode = OverviewViewMode.CHART },
+                onClick = { onViewModeChanged(OverviewViewMode.CHART) },
                 text = {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -303,7 +303,7 @@ fun ChartsScreen(
                                 modifier = Modifier.size(16.dp)
                             )
                             Text(
-                                text = "Messperiode (WatchCheck):",
+                                text = "Messperiode:",
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
@@ -311,12 +311,13 @@ fun ChartsScreen(
                         }
 
                         if (selectedPeriodSetId != null) {
+                            val periodInfo = RateCalculator.getPeriodDisplayInfo(allWatchLogs, selectedPeriodSetId)
                             Surface(
                                 shape = RoundedCornerShape(4.dp),
                                 color = MaterialTheme.colorScheme.primaryContainer
                             ) {
                                 Text(
-                                    text = "Periode #${selectedPeriodSetId + 1}",
+                                    text = periodInfo.title,
                                     style = MaterialTheme.typography.labelSmall,
                                     fontWeight = FontWeight.Bold,
                                     color = MaterialTheme.colorScheme.onPrimaryContainer,
@@ -359,12 +360,13 @@ fun ChartsScreen(
                         distinctPeriods.forEach { pId ->
                             val isSelected = selectedPeriodSetId == pId
                             val pCount = allWatchLogs.count { it.setId == pId }
+                            val periodInfo = RateCalculator.getPeriodDisplayInfo(allWatchLogs, pId)
                             Tab(
                                 selected = isSelected,
                                 onClick = { onSelectPeriod(pId) },
                                 text = {
                                     Text(
-                                        text = "Periode ${pId + 1} ($pCount)",
+                                        text = "${periodInfo.title} ($pCount)",
                                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                     )
                                 },
@@ -860,6 +862,7 @@ fun ChartsScreen(
     logToEdit?.let { log ->
         EditMeasurementDialog(
             log = log,
+            allLogs = allWatchLogs,
             onDismiss = { logToEdit = null },
             onConfirm = { updated ->
                 onUpdateLog(updated)
@@ -1077,6 +1080,7 @@ private fun PositionStatsCard(positionStats: Map<WatchPosition, PositionStatisti
 @Composable
 private fun EditMeasurementDialog(
     log: MeasurementLog,
+    allLogs: List<MeasurementLog>,
     onDismiss: () -> Unit,
     onConfirm: (MeasurementLog) -> Unit,
     onDelete: () -> Unit
@@ -1128,8 +1132,9 @@ private fun EditMeasurementDialog(
                         ) {
                             Text("-1", fontSize = 11.sp)
                         }
+                        val periodInfo = RateCalculator.getPeriodDisplayInfo(allLogs, editedSetId)
                         Text(
-                            text = "Periode #${editedSetId + 1}",
+                            text = periodInfo.title,
                             fontWeight = FontWeight.Bold,
                             style = MaterialTheme.typography.bodySmall,
                             fontFamily = FontFamily.Monospace

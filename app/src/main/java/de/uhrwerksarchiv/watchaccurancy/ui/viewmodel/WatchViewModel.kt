@@ -77,11 +77,33 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     val ntpStatus: StateFlow<NtpStatus> = ntpManager.status
 
+    // Sortierung der Uhren: Die Uhr mit dem aktuellsten Messdatum an oberster Stelle,
+    // restliche Uhren absteigend nach letztem Messdatum (Uhren ohne Messungen danach nach createdAt absteigend)
     val watches: StateFlow<List<Watch>> = repository.allWatches
+        .combine(repository.allLogs) { watchList, logsList ->
+            val latestTimestampPerWatch = logsList.groupBy { it.watchId }
+                .mapValues { entry -> entry.value.maxOfOrNull { it.ntpTimestampMs } ?: 0L }
+            watchList.sortedWith(
+                compareByDescending<Watch> { latestTimestampPerWatch[it.id] ?: 0L }
+                    .thenByDescending { it.createdAt }
+            )
+        }
         .stateIn(
             scope = viewModelScope,
             started = SharingStarted.WhileSubscribed(5000),
             initialValue = emptyList()
+        )
+
+    // Map von watchId -> neuester ntpTimestampMs für schnelle Abfragen und UI-Labels
+    val latestMeasurementTimestamps: StateFlow<Map<Long, Long>> = repository.allLogs
+        .combine(flowOf(Unit)) { logsList, _ ->
+            logsList.groupBy { it.watchId }
+                .mapValues { entry -> entry.value.maxOfOrNull { it.ntpTimestampMs } ?: 0L }
+        }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5000),
+            initialValue = emptyMap()
         )
 
     private val _selectedWatchId = MutableStateFlow<Long?>(null)
@@ -90,7 +112,10 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedPosition = MutableStateFlow(WatchPosition.WORN)
     val selectedPosition: StateFlow<WatchPosition> = _selectedPosition.asStateFlow()
 
-    private val _targetWatchTimeMs = MutableStateFlow(computeInitialTargetTime())
+    private val _presetTemperature = MutableStateFlow(35.0)
+    val presetTemperature: StateFlow<Double> = _presetTemperature.asStateFlow()
+
+    private val _targetWatchTimeMs = MutableStateFlow(computeInitialFallbackTargetTime())
     val targetWatchTimeMs: StateFlow<Long> = _targetWatchTimeMs.asStateFlow()
 
     private val _chartFilterPosition = MutableStateFlow<WatchPosition?>(null)
@@ -104,6 +129,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _isImporting = MutableStateFlow(false)
     val isImporting: StateFlow<Boolean> = _isImporting.asStateFlow()
+
+    // Speichert pro Uhr die gewählte Periode; standardmäßig wird immer die aktuellste/letzte gewählt
+    private val selectedPeriodPerWatch = mutableMapOf<Long, Int?>()
 
     private val _selectedPeriodSetId = MutableStateFlow<Int?>(null)
     val selectedPeriodSetId: StateFlow<Int?> = _selectedPeriodSetId.asStateFlow()
@@ -172,28 +200,92 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         )
 
     init {
+        // Initial-Selektion der ersten Uhr
         viewModelScope.launch {
             watches.collect { list ->
                 if (_selectedWatchId.value == null && list.isNotEmpty()) {
-                    _selectedWatchId.value = list.first().id
+                    selectWatch(list.first().id)
+                }
+            }
+        }
+
+        // Standardmäßig bei jeder Uhr die letzte/aktuellste Periode auswählen
+        viewModelScope.launch {
+            selectedWatchLogs.collect { logs ->
+                val currentWatch = _selectedWatchId.value
+                if (currentWatch != null) {
+                    if (!selectedPeriodPerWatch.containsKey(currentWatch)) {
+                        val latestPeriod = logs.maxByOrNull { it.ntpTimestampMs }?.setId
+                        _selectedPeriodSetId.value = latestPeriod
+                        if (latestPeriod != null) {
+                            selectedPeriodPerWatch[currentWatch] = latestPeriod
+                        }
+                    } else {
+                        _selectedPeriodSetId.value = selectedPeriodPerWatch[currentWatch]
+                    }
                 }
             }
         }
     }
 
     fun selectWatch(watchId: Long) {
-        if (_selectedWatchId.value != watchId) {
-            _selectedWatchId.value = watchId
-            // Default to all periods or keep current
+        _selectedWatchId.value = watchId
+        if (selectedPeriodPerWatch.containsKey(watchId)) {
+            _selectedPeriodSetId.value = selectedPeriodPerWatch[watchId]
         }
+        prepareMeasurePresetForWatch(watchId)
     }
 
     fun selectPeriod(setId: Int?) {
         _selectedPeriodSetId.value = setId
+        val currentWatch = _selectedWatchId.value
+        if (currentWatch != null) {
+            selectedPeriodPerWatch[currentWatch] = setId
+        }
+    }
+
+    /**
+     * Stellt für die gewählte Uhr die Werte der letzten Messung vorein:
+     * - Ziel-Uhrzeit angepasst an bisherige Abweichung (so dass der Nutzer nicht manuell kurbeln muss)
+     * - Letzte Position
+     * - Letzte Temperatur (Standard 20° bzw. 35° bei "Am Arm")
+     */
+    fun prepareMeasurePresetForWatch(watchId: Long) {
+        viewModelScope.launch {
+            val logs = repository.getLogsForWatchList(watchId)
+            val lastLog = logs.maxByOrNull { it.ntpTimestampMs }
+
+            // 1. Intelligente Ziel-Uhrzeit
+            _targetWatchTimeMs.value = computeIntelligentTargetTime(lastLog)
+
+            // 2. Position
+            val targetPosition = lastLog?.position ?: WatchPosition.WORN
+            _selectedPosition.value = targetPosition
+
+            // 3. Temperatur (Standard 20°, bei WORN 35°)
+            val targetTemp = if (lastLog != null && lastLog.extraValue != 0.0) {
+                lastLog.extraValue
+            } else {
+                if (targetPosition == WatchPosition.WORN) 35.0 else 20.0
+            }
+            _presetTemperature.value = targetTemp
+        }
     }
 
     fun setPosition(position: WatchPosition) {
+        val oldPosition = _selectedPosition.value
         _selectedPosition.value = position
+
+        // Standardwert für die Temperatur ist 20°, außer wenn "Am Arm" gewählt wird, dann sind es 35°.
+        if (position == WatchPosition.WORN && (_presetTemperature.value == 20.0 || _presetTemperature.value == 0.0)) {
+            _presetTemperature.value = 35.0
+        } else if (position != WatchPosition.WORN && _presetTemperature.value == 35.0) {
+            _presetTemperature.value = 20.0
+        }
+    }
+
+    fun setTemperature(temp: Double) {
+        _presetTemperature.value = temp
     }
 
     fun setChartFilterPosition(position: WatchPosition?) {
@@ -204,11 +296,44 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
         ntpManager.syncNow()
     }
 
-    private fun computeInitialTargetTime(): Long {
+    private fun computeInitialFallbackTargetTime(): Long {
         val cal = Calendar.getInstance()
         cal.add(Calendar.MINUTE, 1)
         cal.set(Calendar.SECOND, 0)
         cal.set(Calendar.MILLISECOND, 0)
+        return cal.timeInMillis
+    }
+
+    /**
+     * Berechnet die wahrscheinlichste Ziel-Uhrenzeit (:00 Sekunde) auf dem Zifferblatt der Uhr:
+     * Wenn die Uhr z.B. 2 Minuten vorgeht (Delta t = +120s), liegt die Zeigerzeit auch 2 Minuten vor
+     * der Atomzeit. Der nächste Sekundenzeiger-Nulldurchgang (:00) wird somit auf der Zeigerzeit
+     * ermittelt, sodass dem Nutzer mindestens 15 bis 75 Sekunden Reaktionszeit bleiben.
+     */
+    fun computeIntelligentTargetTime(lastLog: MeasurementLog?): Long {
+        val currentAtomicTime = ntpManager.getAtomicTimeForEvent(SystemClock.elapsedRealtime())
+        val lastDeviationMs = if (lastLog != null) {
+            lastLog.watchTimestampMs - lastLog.ntpTimestampMs
+        } else {
+            0L
+        }
+
+        // Geschätzte aktuelle Zeigerzeit auf der mechanischen Uhr
+        val estimatedWatchTimeNow = currentAtomicTime + lastDeviationMs
+
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = estimatedWatchTimeNow
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+            add(Calendar.MINUTE, 1)
+        }
+
+        // Wenn bis zum nächsten vollen Zeigerminutensprung weniger als 15 Sekunden verbleiben,
+        // geben wir dem Nutzer die darauffolgende Minute für entspannte Vorbereitung.
+        val timeRemainingMs = cal.timeInMillis - estimatedWatchTimeNow
+        if (timeRemainingMs < 15_000L) {
+            cal.add(Calendar.MINUTE, 1)
+        }
         return cal.timeInMillis
     }
 
@@ -221,7 +346,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun setTargetTimeToNextMinute() {
-        _targetWatchTimeMs.value = computeInitialTargetTime()
+        val logs = selectedWatchLogs.value
+        val lastLog = logs.maxByOrNull { it.ntpTimestampMs }
+        _targetWatchTimeMs.value = computeIntelligentTargetTime(lastLog)
     }
 
     fun setCustomTargetTime(timestampMs: Long) {
@@ -271,15 +398,29 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             val newId = repository.insertLog(log)
             val insertedLog = log.copy(id = newId)
 
-            // Select this period so overview immediately displays it
+            // Aktuelle Periode merken und auswählen
             _selectedPeriodSetId.value = computedSetId
+            selectedPeriodPerWatch[watchId] = computedSetId
 
-            setTargetTimeToNextMinute()
+            // Nachfolgende Zielzeit, Position und Temperatur direkt aus dieser neuen Messung ableiten
+            _targetWatchTimeMs.value = computeIntelligentTargetTime(insertedLog)
+            _selectedPosition.value = insertedLog.position
+            if (insertedLog.extraValue != 0.0) {
+                _presetTemperature.value = insertedLog.extraValue
+            }
 
             val devSec = insertedLog.deviationSeconds
             val devSign = if (devSec >= 0) "+" else ""
-            val periodLabel = "Periode #${computedSetId + 1}"
-            val msg = String.format(java.util.Locale.US, "Messpunkt gespeichert (%s)! Abweichung: %s%.2fs (%s)", periodLabel, devSign, devSec, position.shortLabel)
+            val allWithNew = currentLogs + insertedLog
+            val periodInfo = RateCalculator.getPeriodDisplayInfo(allWithNew, computedSetId)
+            val msg = String.format(
+                java.util.Locale.US,
+                "Messpunkt gespeichert (%s)! Abweichung: %s%.2fs (%s)",
+                periodInfo.title,
+                devSign,
+                devSec,
+                position.shortLabel
+            )
             _uiEvents.emit(UiMessage.Success(msg))
 
             onRecorded(insertedLog, null)
@@ -291,7 +432,13 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             repository.updateLog(updatedLog)
             val devSec = updatedLog.deviationSeconds
             val devSign = if (devSec >= 0) "+" else ""
-            val msg = String.format(java.util.Locale.US, "Messung korrigiert! Neue Abweichung: %s%.2fs (%s)", devSign, devSec, updatedLog.position.shortLabel)
+            val msg = String.format(
+                java.util.Locale.US,
+                "Messung korrigiert! Neue Abweichung: %s%.2fs (%s)",
+                devSign,
+                devSec,
+                updatedLog.position.shortLabel
+            )
             _uiEvents.emit(UiMessage.Success(msg))
         }
     }
@@ -312,7 +459,7 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
                 createdAt = System.currentTimeMillis()
             )
             val id = repository.insertWatch(newWatch)
-            _selectedWatchId.value = id
+            selectWatch(id)
             _uiEvents.emit(UiMessage.Success("Uhr '${newWatch.model}' hinzugefügt."))
         }
     }
@@ -327,8 +474,15 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteWatch(watchId: Long) {
         viewModelScope.launch {
             repository.deleteWatchById(watchId)
+            selectedPeriodPerWatch.remove(watchId)
             if (_selectedWatchId.value == watchId) {
-                _selectedWatchId.value = watches.value.firstOrNull { it.id != watchId }?.id
+                val nextWatch = watches.value.firstOrNull { it.id != watchId }
+                if (nextWatch != null) {
+                    selectWatch(nextWatch.id)
+                } else {
+                    _selectedWatchId.value = null
+                    _selectedPeriodSetId.value = null
+                }
             }
             _uiEvents.emit(UiMessage.Success("Uhr gelöscht."))
         }
@@ -377,8 +531,9 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
             if (res.isSuccess) {
                 val (wCount, lCount) = res.getOrThrow()
                 _importReport.value = null
+                selectedPeriodPerWatch.clear()
                 if (report.watches.isNotEmpty()) {
-                    _selectedWatchId.value = report.watches.first().id
+                    selectWatch(report.watches.first().id)
                 }
                 _uiEvents.emit(UiMessage.Success("Erfolgreich importiert: $wCount Uhren, $lCount Messpunkte!"))
             } else {

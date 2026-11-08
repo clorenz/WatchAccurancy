@@ -18,8 +18,8 @@ object BackupParser {
     private const val PREFIX_WATCH = "WATCH:"
     private const val PREFIX_LOG = "LOG:"
 
-    private const val MIN_VALID_TIMESTAMP = 946684800000L
-    private const val MAX_VALID_TIMESTAMP = 4102444800000L
+    private const val MIN_VALID_TIMESTAMP = 946684800000L      // ~ Year 2000
+    private const val MAX_VALID_TIMESTAMP = 4102444800000L     // ~ Year 2100
 
     fun parse(content: String): ParseReport {
         val watches = mutableListOf<Watch>()
@@ -27,13 +27,21 @@ object BackupParser {
         val warnings = mutableListOf<String>()
         val errors = mutableListOf<String>()
 
-        val lines = content.lines()
+        // Remove possible UTF-8 BOM
+        val cleanContent = content.removePrefix("\uFEFF").trim()
+        val lines = cleanContent.lines()
         var lineIndex = 0
 
         for (rawLine in lines) {
             lineIndex++
             val line = rawLine.trim()
             if (line.isEmpty() || line.startsWith("#") || line.startsWith("//")) {
+                continue
+            }
+
+            // WatchCheck / WatchCheck2 header line
+            if (line.startsWith("WatchCheck", ignoreCase = true)) {
+                // Authentic WatchCheck header line - perfectly valid, no warning needed
                 continue
             }
 
@@ -56,7 +64,7 @@ object BackupParser {
                 Watch(
                     id = missingId,
                     model = "Importierte Uhr #$missingId",
-                    serialNumber = "Unbekannt",
+                    serialNumber = "",
                     caliber = "",
                     notes = "Automatisch bei Import generiert",
                     createdAt = System.currentTimeMillis()
@@ -85,15 +93,17 @@ object BackupParser {
         val payload = line.substringAfter(PREFIX_WATCH).trim()
         val tokens = payload.split('|').map { it.trim() }
 
-        if (tokens.size < 4) {
-            outErrors.add("Zeile $lineIndex: Ungültiges WATCH-Format (zu wenige Spalten: ${tokens.size}). Erwartet mindestens 4 Tokens.")
+        // WatchCheck format: id|name|serial|createdAt|comment
+        if (tokens.size < 2) {
+            outErrors.add("Zeile $lineIndex: Ungültiges WATCH-Format (zu wenige Spalten: ${tokens.size}). Erwartet mindestens ID und Modell.")
             return
         }
 
         val idStr = tokens[0]
         val model = tokens[1]
-        val serialNumber = tokens.getOrElse(2) { "" }
-        val createdStr = tokens.getOrElse(3) { "" }
+        val rawSerial = tokens.getOrElse(2) { "" }
+        val rawCreated = tokens.getOrElse(3) { "" }
+        val rawNotes = tokens.getOrElse(4) { "" }
 
         val watchId = idStr.toLongOrNull()
         if (watchId == null || watchId <= 0) {
@@ -101,9 +111,14 @@ object BackupParser {
             return
         }
 
-        var createdAt = createdStr.toLongOrNull() ?: 0L
+        val serialNumber = if (rawSerial.equals("null", ignoreCase = true)) "" else rawSerial
+        val notes = if (rawNotes.equals("null", ignoreCase = true)) "" else rawNotes
+
+        var createdAt = rawCreated.toLongOrNull() ?: 0L
         if (createdAt < MIN_VALID_TIMESTAMP || createdAt > MAX_VALID_TIMESTAMP) {
-            outWarnings.add("Zeile $lineIndex: Zeitstempel $createdAt für Uhr '$model' unplausibel, wird auf aktuellen Zeitpunkt gesetzt.")
+            if (rawCreated.isNotEmpty() && !rawCreated.equals("null", ignoreCase = true) && rawCreated != "0") {
+                outWarnings.add("Zeile $lineIndex: Zeitstempel $createdAt für Uhr '$model' unplausibel, wird auf aktuellen Zeitpunkt gesetzt.")
+            }
             createdAt = System.currentTimeMillis()
         }
 
@@ -115,7 +130,7 @@ object BackupParser {
                 model = finalModel,
                 serialNumber = serialNumber,
                 caliber = "",
-                notes = "",
+                notes = notes,
                 createdAt = createdAt
             )
         )
@@ -131,8 +146,9 @@ object BackupParser {
         val payload = line.substringAfter(PREFIX_LOG).trim()
         val tokens = payload.split('|').map { it.trim() }
 
-        if (tokens.size < 6) {
-            outErrors.add("Zeile $lineIndex: Ungültiges LOG-Format (nur ${tokens.size} Spalten). Erwartet mind. 6 Tokens.")
+        // WatchCheck format: id|watchId|period|refTime|watchTime|position|temperature|comment
+        if (tokens.size < 5) {
+            outErrors.add("Zeile $lineIndex: Ungültiges LOG-Format (nur ${tokens.size} Spalten). Erwartet mind. 5 Tokens.")
             return
         }
 
@@ -143,7 +159,7 @@ object BackupParser {
         val watchTimeStr = tokens.getOrElse(4) { "" }
         val positionCode = tokens.getOrElse(5) { "WORN" }
         val extraValueStr = tokens.getOrElse(6) { "0" }
-        val noteText = tokens.getOrElse(7) { "" }
+        val rawNote = tokens.getOrElse(7) { "" }
 
         val logId = logIdStr.toLongOrNull()
         val watchId = watchIdStr.toLongOrNull()
@@ -171,8 +187,22 @@ object BackupParser {
             return
         }
 
-        val cleanPosCode = WatchPosition.fromCode(positionCode).code
-        val extraValue = extraValueStr.toDoubleOrNull() ?: 0.0
+        val cleanPosCode = if (positionCode.isBlank() || positionCode.equals("null", ignoreCase = true)) {
+            "WORN"
+        } else {
+            WatchPosition.fromCode(positionCode).code
+        }
+
+        // In WatchCheck, unset temperature is stored as -273 or -273.15 or null
+        val extraValue = if (extraValueStr.equals("null", ignoreCase = true) ||
+            extraValueStr.startsWith("-273")
+        ) {
+            0.0
+        } else {
+            extraValueStr.toDoubleOrNull() ?: 0.0
+        }
+
+        val notes = if (rawNote.equals("null", ignoreCase = true)) "" else rawNote
 
         outLogs.add(
             MeasurementLog(
@@ -183,13 +213,15 @@ object BackupParser {
                 watchTimestampMs = watchTime,
                 positionCode = cleanPosCode,
                 extraValue = extraValue,
-                notes = noteText
+                notes = notes
             )
         )
     }
 
     fun exportToFormat(watches: List<Watch>, logs: List<MeasurementLog>): String {
         val sb = StringBuilder()
+        // Header line matching authentic WatchCheck / WatchCheck2 format
+        sb.append("WatchCheck2\n")
         sb.append("# WatchAccurancy / WatchCheck Backup Export\n")
         sb.append("# Format: GPLv3 Open Source Compatible\n\n")
 
@@ -198,7 +230,8 @@ object BackupParser {
                 .append(watch.id).append('|')
                 .append(watch.model).append('|')
                 .append(watch.serialNumber).append('|')
-                .append(watch.createdAt).append("|\n")
+                .append(watch.createdAt).append('|')
+                .append(watch.notes).append("\n")
         }
 
         sb.append("\n")
@@ -225,10 +258,12 @@ object BackupParser {
         return sb.toString()
     }
 
+    // Neutral horological examples without any commercial brand names
     val SAMPLE_BACKUP_DATA = """
-WATCH: 1|Omega Speedmaster Professional|77123984|1565100000000|
-WATCH: 3|Rolex Datejust|E283744|1573237608379|
-WATCH: 7|Seiko SKX007|9D1244|1581000000000|
+WatchCheck2
+WATCH: 1|Handaufzug Chronograph|CHRONO-7712|1565100000000|Klassischer Fliegerchronograph
+WATCH: 2|Klassische Automatikuhr|AUTO-2837|1573237608379|Alltagsuhr mit Datum
+WATCH: 3|Taucheruhr Automatik|DIVER-9012|1581000000000|Wasserdicht 200m
 
 LOG: 35|1|2|1565212365546|1565212500000|DU|20|
 LOG: 36|1|2|1565298810230|1565298947000|DU|20|Zifferblatt oben
@@ -236,10 +271,10 @@ LOG: 37|1|2|1565385250100|1565385390000|WORN|22|Getragen
 LOG: 38|1|2|1565471690000|1565471833500|WORN|22|Getragen Büro
 LOG: 39|1|2|1565558120000|1565558265000|CU|19|Krone oben Nacht
 
-LOG: 51|3|0|1573841028000|1573841040000|WORN|21|
-LOG: 52|3|0|1573927428709|1573927440000|WORN|-273|Nachts 12O
-LOG: 53|3|0|1574013830000|1574013845000|DU|20|Wochenende
-LOG: 54|3|0|1574100231000|1574100249500|DD|20|Nachttisch
-LOG: 55|3|0|1574186632000|1574186653000|WINDER|21|Uhrenbeweger
+LOG: 51|2|0|1573841028000|1573841040000|WORN|21|
+LOG: 52|2|0|1573927428709|1573927440000|WORN|-273|Nachts 12O
+LOG: 53|2|0|1574013830000|1574013845000|DU|20|Wochenende
+LOG: 54|2|0|1574100231000|1574100249500|DD|20|Nachttisch
+LOG: 55|2|0|1574186632000|1574186653000|WINDER|21|Uhrenbeweger
 """.trimIndent()
 }

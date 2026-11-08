@@ -127,7 +127,25 @@ fun WatchPrecisionChart(
     val zeroLineColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.6f)
     val textColor = MaterialTheme.colorScheme.onSurfaceVariant
 
-    BoxWithConstraints(
+    val values = remember(displayPoints, metric) {
+        displayPoints.map {
+            when (metric) {
+                ChartMetric.RATE_PER_DAY -> it.rateSecondsPerDay ?: 0.0
+                ChartMetric.CUMULATIVE_DEVIATION -> it.cumulativeDeviationSeconds
+            }
+        }
+    }
+    val rawMinY = values.minOrNull() ?: 0.0
+    val rawMaxY = values.maxOrNull() ?: 0.0
+    val minY = min(rawMinY - 1.0, -1.0)
+    val maxY = max(rawMaxY + 1.0, 1.0)
+    val yRange = max(0.1, maxY - minY)
+
+    val minX = displayPoints.first().log.ntpTimestampMs
+    val maxX = displayPoints.last().log.ntpTimestampMs
+    val xRange = max(1000L, maxX - minX).toDouble()
+
+    Box(
         modifier = modifier
             .fillMaxWidth()
             .height(280.dp)
@@ -138,44 +156,24 @@ fun WatchPrecisionChart(
             .padding(12.dp)
             .testTag("precision_chart")
     ) {
-        val width = constraints.maxWidth.toFloat()
-        val height = constraints.maxHeight.toFloat()
+        var canvasWidthPx by remember { mutableStateOf(300f) }
+        var canvasHeightPx by remember { mutableStateOf(260f) }
 
         val paddingLeft = 110f
         val paddingRight = 40f
         val paddingTop = 40f
         val paddingBottom = 70f
 
-        val plotWidth = max(10f, width - paddingLeft - paddingRight)
-        val plotHeight = max(10f, height - paddingTop - paddingBottom)
-
-        val values = displayPoints.map {
-            when (metric) {
-                ChartMetric.RATE_PER_DAY -> it.rateSecondsPerDay ?: 0.0
-                ChartMetric.CUMULATIVE_DEVIATION -> it.cumulativeDeviationSeconds
-            }
-        }
-        val rawMinY = values.minOrNull() ?: 0.0
-        val rawMaxY = values.maxOrNull() ?: 0.0
-
-        val minY = min(rawMinY - 1.0, -1.0)
-        val maxY = max(rawMaxY + 1.0, 1.0)
-        val yRange = max(0.1, maxY - minY)
-
-        val minX = displayPoints.first().log.ntpTimestampMs
-        val maxX = displayPoints.last().log.ntpTimestampMs
-        val xRange = max(1000L, maxX - minX).toDouble()
-
-        fun getX(index: Int): Float {
-            if (displayPoints.size == 1) return paddingLeft + plotWidth / 2f
+        fun getX(index: Int, plotW: Float): Float {
+            if (displayPoints.size <= 1) return paddingLeft + plotW / 2f
             val time = displayPoints[index].log.ntpTimestampMs
-            val progress = ((time - minX) / xRange).toFloat()
-            return paddingLeft + (progress * plotWidth)
+            val progress = ((time - minX) / xRange).toFloat().coerceIn(0f, 1f)
+            return paddingLeft + (progress * plotW)
         }
 
-        fun getY(value: Double): Float {
+        fun getY(value: Double, plotH: Float): Float {
             val progress = ((value - minY) / yRange).toFloat()
-            return paddingTop + plotHeight - (progress * plotHeight)
+            return paddingTop + plotH - (progress * plotH)
         }
 
         Canvas(
@@ -183,10 +181,11 @@ fun WatchPrecisionChart(
                 .fillMaxSize()
                 .pointerInput(displayPoints) {
                     detectTapGestures { offset ->
+                        val pWidth = max(10f, canvasWidthPx - paddingLeft - paddingRight)
                         var closestIndex: Int? = null
                         var minDistance = Float.MAX_VALUE
                         for (i in displayPoints.indices) {
-                            val px = getX(i)
+                            val px = getX(i, pWidth)
                             val dist = abs(offset.x - px)
                             if (dist < minDistance && dist < 120f) {
                                 minDistance = dist
@@ -197,54 +196,74 @@ fun WatchPrecisionChart(
                     }
                 }
         ) {
-            if (minY <= 0.0 && maxY >= 0.0) {
-                val zeroY = getY(0.0)
-                drawLine(
-                    color = zeroLineColor,
-                    start = Offset(paddingLeft, zeroY),
-                    end = Offset(paddingLeft + plotWidth, zeroY),
-                    strokeWidth = 2.dp.toPx(),
-                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
-                )
-                drawText(
-                    textMeasurer = textMeasurer,
-                    text = "0.0",
-                    topLeft = Offset(paddingLeft - 85f, zeroY - 18f),
-                    style = TextStyle(color = zeroLineColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
-                )
+            val width = size.width
+            val height = size.height
+            if (width > 0f && height > 0f) {
+                canvasWidthPx = width
+                canvasHeightPx = height
             }
 
-            val stepY = if (yRange > 20) 10.0 else if (yRange > 8) 5.0 else if (yRange > 4) 2.0 else 1.0
-            var currentGridY = (minY / stepY).toInt() * stepY
-            while (currentGridY <= maxY) {
-                if (abs(currentGridY) > 0.01) {
-                    val gy = getY(currentGridY)
+            val plotWidth = max(10f, width - paddingLeft - paddingRight)
+            val plotHeight = max(10f, height - paddingTop - paddingBottom)
+
+            // Nulllinie (0.0)
+            if (minY <= 0.0 && maxY >= 0.0) {
+                val zeroY = getY(0.0, plotHeight)
+                if (zeroY in paddingTop..(paddingTop + plotHeight)) {
                     drawLine(
-                        color = gridColor,
-                        start = Offset(paddingLeft, gy),
-                        end = Offset(paddingLeft + plotWidth, gy),
-                        strokeWidth = 1f
+                        color = zeroLineColor,
+                        start = Offset(paddingLeft, zeroY),
+                        end = Offset(paddingLeft + plotWidth, zeroY),
+                        strokeWidth = 2.dp.toPx(),
+                        pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 8f), 0f)
                     )
-                    val label = String.format(Locale.US, "%+.1f", currentGridY)
                     drawText(
                         textMeasurer = textMeasurer,
-                        text = label,
-                        topLeft = Offset(paddingLeft - 95f, gy - 16f),
-                        style = TextStyle(color = textColor, fontSize = 10.sp)
+                        text = "0.0",
+                        topLeft = Offset(max(5f, paddingLeft - 85f), zeroY - 18f),
+                        style = TextStyle(color = zeroLineColor, fontSize = 11.sp, fontWeight = FontWeight.Bold)
                     )
+                }
+            }
+
+            // Horizontale Gitterlinien mit Schleifenschutz
+            val stepY = if (yRange > 20) 10.0 else if (yRange > 8) 5.0 else if (yRange > 4) 2.0 else 1.0
+            var currentGridY = (minY / stepY).toInt() * stepY
+            var gridLinesDrawn = 0
+            while (currentGridY <= maxY && gridLinesDrawn < 40) {
+                gridLinesDrawn++
+                if (abs(currentGridY) > 0.01) {
+                    val gy = getY(currentGridY, plotHeight)
+                    if (gy in paddingTop..(paddingTop + plotHeight)) {
+                        drawLine(
+                            color = gridColor,
+                            start = Offset(paddingLeft, gy),
+                            end = Offset(paddingLeft + plotWidth, gy),
+                            strokeWidth = 1f
+                        )
+                        val label = String.format(Locale.US, "%+.1f", currentGridY)
+                        drawText(
+                            textMeasurer = textMeasurer,
+                            text = label,
+                            topLeft = Offset(max(5f, paddingLeft - 95f), gy - 16f),
+                            style = TextStyle(color = textColor, fontSize = 10.sp)
+                        )
+                    }
                 }
                 currentGridY += stepY
             }
 
+            // Verbindungslinie
             if (displayPoints.size > 1) {
                 val linePath = Path()
                 for (i in displayPoints.indices) {
-                    val x = getX(i)
+                    val x = getX(i, plotWidth)
                     val y = getY(
                         when (metric) {
                             ChartMetric.RATE_PER_DAY -> displayPoints[i].rateSecondsPerDay ?: 0.0
                             ChartMetric.CUMULATIVE_DEVIATION -> displayPoints[i].cumulativeDeviationSeconds
-                        }
+                        },
+                        plotHeight
                     )
                     if (i == 0) {
                         linePath.moveTo(x, y)
@@ -259,14 +278,16 @@ fun WatchPrecisionChart(
                 )
             }
 
+            // Messpunkte als Punkte zeichnen
             for (i in displayPoints.indices) {
                 val point = displayPoints[i]
-                val x = getX(i)
+                val x = getX(i, plotWidth)
                 val y = getY(
                     when (metric) {
                         ChartMetric.RATE_PER_DAY -> point.rateSecondsPerDay ?: 0.0
                         ChartMetric.CUMULATIVE_DEVIATION -> point.cumulativeDeviationSeconds
-                    }
+                    },
+                    plotHeight
                 )
 
                 val posColor = point.log.position.color
@@ -298,6 +319,7 @@ fun WatchPrecisionChart(
                 }
             }
 
+            // Datumsachsen-Beschriftung unten
             if (displayPoints.isNotEmpty()) {
                 val firstDate = RateCalculator.formatDateTime(displayPoints.first().log.ntpTimestampMs)
                 drawText(
@@ -309,32 +331,37 @@ fun WatchPrecisionChart(
 
                 if (displayPoints.size > 1) {
                     val lastDate = RateCalculator.formatDateTime(displayPoints.last().log.ntpTimestampMs)
+                    val lastDateX = max(paddingLeft + 60f, paddingLeft + plotWidth - 140f)
                     drawText(
                         textMeasurer = textMeasurer,
                         text = lastDate,
-                        topLeft = Offset(paddingLeft + plotWidth - 140f, height - 35f),
+                        topLeft = Offset(lastDateX, height - 35f),
                         style = TextStyle(color = textColor, fontSize = 10.sp)
                     )
                 }
             }
         }
 
+        // Tooltip bei angetipptem Punkt
         selectedPointIndex?.let { idx ->
             if (idx in displayPoints.indices) {
                 val point = displayPoints[idx]
-                val px = getX(idx)
+                val pWidth = max(10f, canvasWidthPx - paddingLeft - paddingRight)
+                val pHeight = max(10f, canvasHeightPx - paddingTop - paddingBottom)
+                val px = getX(idx, pWidth)
                 val py = getY(
                     when (metric) {
                         ChartMetric.RATE_PER_DAY -> point.rateSecondsPerDay ?: 0.0
                         ChartMetric.CUMULATIVE_DEVIATION -> point.cumulativeDeviationSeconds
-                    }
+                    },
+                    pHeight
                 )
 
                 val tooltipWidth = 180.dp
-                val tooltipXOffset = if (px > width / 2) {
+                val tooltipXOffset = if (px > canvasWidthPx / 2) {
                     (px - 190).coerceAtLeast(10f)
                 } else {
-                    (px + 15).coerceAtMost(width - 190)
+                    (px + 15).coerceAtMost(max(10f, canvasWidthPx - 190))
                 }
 
                 Surface(

@@ -4,7 +4,6 @@ import android.content.Context
 import android.os.Build
 import android.os.VibrationEffect
 import android.os.Vibrator
-import androidx.compose.animation.animateColorAsState
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -35,7 +34,6 @@ import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material.icons.filled.Watch
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
@@ -45,7 +43,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -75,6 +72,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.R
+import de.uhrwerksarchiv.watchaccurancy.data.model.MeasurementLog
+import de.uhrwerksarchiv.watchaccurancy.data.model.RateCalculator
 import de.uhrwerksarchiv.watchaccurancy.data.model.Watch
 import de.uhrwerksarchiv.watchaccurancy.data.model.WatchPosition
 import de.uhrwerksarchiv.watchaccurancy.data.ntp.NtpStatus
@@ -91,8 +90,11 @@ fun MeasureScreen(
     targetWatchTimeMs: Long,
     ntpStatus: NtpStatus,
     existingPeriods: List<Int> = emptyList(),
+    allWatchLogs: List<MeasurementLog> = emptyList(),
+    presetTemperature: Double = 35.0,
     onSelectWatch: (Long) -> Unit,
     onSetPosition: (WatchPosition) -> Unit,
+    onSetTemperature: (Double) -> Unit = {},
     onAdjustTargetMinute: (Int) -> Unit,
     onSetTargetToNextMinute: () -> Unit,
     onSyncNtp: () -> Unit,
@@ -102,9 +104,18 @@ fun MeasureScreen(
 ) {
     val context = LocalContext.current
     var notes by remember { mutableStateOf("") }
-    var extraValueText by remember { mutableStateOf("0") }
+    var extraValueText by remember { mutableStateOf("35") }
     var showWatchDropdown by remember { mutableStateOf(false) }
     var showPositionDropdown by remember { mutableStateOf(false) }
+
+    // Synchronisiere voreingestellte Temperatur bei Uhrenwechsel oder Positionsanpassung
+    LaunchedEffect(presetTemperature, selectedWatchId) {
+        extraValueText = if (presetTemperature % 1.0 == 0.0) {
+            presetTemperature.toInt().toString()
+        } else {
+            presetTemperature.toString()
+        }
+    }
 
     var currentLiveNtpTime by remember { mutableStateOf(System.currentTimeMillis()) }
     LaunchedEffect(Unit) {
@@ -121,7 +132,13 @@ fun MeasureScreen(
     val selectedWatch = watches.firstOrNull { it.id == selectedWatchId }
 
     val vibrator = remember {
-        context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            val vibratorManager = context.getSystemService(Context.VIBRATOR_MANAGER_SERVICE) as? android.os.VibratorManager
+            vibratorManager?.defaultVibrator
+        } else {
+            @Suppress("DEPRECATION")
+            context.getSystemService(Context.VIBRATOR_SERVICE) as? Vibrator
+        }
     }
 
     fun triggerHapticFeedback() {
@@ -230,7 +247,7 @@ fun MeasureScreen(
             onRefresh = onSyncNtp
         )
 
-        // 3. TARGET WATCH TIME SETTER
+        // 3. TARGET WATCH TIME SETTER (INTELLIGENT VOREINGESTELLT)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),
@@ -304,7 +321,7 @@ fun MeasureScreen(
             }
         }
 
-        // 4. THE BIG MEASUREMENT BUTTON ("JETZT!") - DIREKT UNTER DER ZIEL-UHRENZEIT
+        // 4. DER GROSSE ERFASSUNGSBUTTON ("JETZT!") - DIREKT UNTER DER ZIEL-UHRENZEIT
         Box(
             modifier = Modifier
                 .size(200.dp)
@@ -322,7 +339,7 @@ fun MeasureScreen(
                 .border(4.dp, MaterialTheme.colorScheme.secondary.copy(alpha = 0.7f), CircleShape)
                 .clickable {
                     triggerHapticFeedback()
-                    val extraVal = extraValueText.toDoubleOrNull() ?: 0.0
+                    val extraVal = extraValueText.toDoubleOrNull() ?: 20.0
                     val currentWatchId = selectedWatchId
                     val willStartNew = isNewPeriod
                     val targetSet = if (willStartNew) null else selectedPeriodId
@@ -376,7 +393,7 @@ fun MeasureScreen(
             }
         }
 
-        // 5. MESS-PERIODE (WIE BEI WATCHCHECK)
+        // 5. MESS-PERIODE (START- UND ENDDATUM WIE BEI WATCHCHECK2)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -388,6 +405,9 @@ fun MeasureScreen(
                 modifier = Modifier.padding(14.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
+                val currentPeriodInfo = if (!isNewPeriod) RateCalculator.getPeriodDisplayInfo(allWatchLogs, selectedPeriodId) else null
+                val periodDisplayLabel = if (isNewPeriod) "Neue Periode (ab heute) – Start / Referenz" else currentPeriodInfo?.title ?: "Periode #${selectedPeriodId + 1}"
+
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -395,7 +415,8 @@ fun MeasureScreen(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
                     ) {
                         Icon(
                             Icons.Default.DateRange,
@@ -405,12 +426,12 @@ fun MeasureScreen(
                         )
                         Column {
                             Text(
-                                text = "Messperiode (WatchCheck):",
+                                text = "Messperiode:",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                             Text(
-                                text = if (isNewPeriod) "Neue Periode #${(existingPeriods.maxOrNull() ?: -1) + 2} (Start / Referenz)" else "Periode #${selectedPeriodId + 1}",
+                                text = periodDisplayLabel,
                                 style = MaterialTheme.typography.titleSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = if (isNewPeriod) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
@@ -460,10 +481,11 @@ fun MeasureScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                         existingPeriods.forEach { pId ->
+                            val info = RateCalculator.getPeriodDisplayInfo(allWatchLogs, pId)
                             FilterChip(
                                 selected = selectedPeriodId == pId,
                                 onClick = { selectedPeriodId = pId },
-                                label = { Text("Periode ${pId + 1}") }
+                                label = { Text(info.title) }
                             )
                         }
                     }
@@ -471,7 +493,7 @@ fun MeasureScreen(
             }
         }
 
-        // 6. POSITION DROPDOWN SELECTOR (UHRENLAGE)
+        // 6. POSITION DROPDOWN SELECTOR (UHRENLAGE MIT TEMPERATUR-SYNCHRONISATION)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp)
@@ -556,6 +578,15 @@ fun MeasureScreen(
                                 },
                                 onClick = {
                                     onSetPosition(pos)
+                                    // Automatische Temperaturanpassung: Standard 20°, bei "Am Arm" 35°
+                                    val currentTemp = extraValueText.toDoubleOrNull() ?: 20.0
+                                    if (pos == WatchPosition.WORN && (currentTemp == 20.0 || currentTemp == 0.0)) {
+                                        extraValueText = "35"
+                                        onSetTemperature(35.0)
+                                    } else if (pos != WatchPosition.WORN && currentTemp == 35.0) {
+                                        extraValueText = "20"
+                                        onSetTemperature(20.0)
+                                    }
                                     showPositionDropdown = false
                                 }
                             )
@@ -565,7 +596,7 @@ fun MeasureScreen(
             }
         }
 
-        // 7. INFO-FREITEXT & ZUSATZDATEN (PERMANENT SICHTBAR)
+        // 7. INFO-FREITEXT & ZUSATZDATEN (TEMPERATUR VOREINGESTELLT 20° / 35°)
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(14.dp),
@@ -595,7 +626,7 @@ fun MeasureScreen(
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    placeholder = { Text("z.B. tagsüber getragen, nachts 12 Uhr abgelegt, 21°C...") },
+                    placeholder = { Text("z.B. tagsüber getragen, nachts 12 Uhr abgelegt...") },
                     modifier = Modifier
                         .fillMaxWidth()
                         .testTag("measurement_notes_input"),
@@ -610,7 +641,7 @@ fun MeasureScreen(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    listOf("Am Arm", "Nachts abgelegt", "Uhrenbeweger", "Kalt (<18°C)", "Warm (>24°C)").forEach { suggestion ->
+                    listOf("Am Arm getragen", "Nachts abgelegt", "Uhrenbeweger", "Kalt (<18°C)", "Warm (>24°C)").forEach { suggestion ->
                         AssistChip(
                             onClick = {
                                 notes = if (notes.isBlank()) suggestion else "$notes, $suggestion"
@@ -630,13 +661,39 @@ fun MeasureScreen(
                 ) {
                     OutlinedTextField(
                         value = extraValueText,
-                        onValueChange = { extraValueText = it },
-                        label = { Text("Zusatzwert / Temp. (°C)") },
+                        onValueChange = {
+                            extraValueText = it
+                            it.toDoubleOrNull()?.let { num -> onSetTemperature(num) }
+                        },
+                        label = { Text("Temperatur (°C)") },
                         singleLine = true,
                         modifier = Modifier
                             .weight(1f)
                             .testTag("measurement_extra_input")
                     )
+                }
+
+                // Schnellwahl-Chips für Temperatur (Standard 20° / Am Arm 35°)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    listOf(
+                        "35°C (Am Arm)" to 35.0,
+                        "20°C (Standard)" to 20.0,
+                        "22°C (Zimmer)" to 22.0,
+                        "18°C (Kühl)" to 18.0
+                    ).forEach { (label, tempVal) ->
+                        AssistChip(
+                            onClick = {
+                                extraValueText = tempVal.toInt().toString()
+                                onSetTemperature(tempVal)
+                            },
+                            label = { Text(label, fontSize = 11.sp) }
+                        )
+                    }
                 }
             }
         }
@@ -651,60 +708,46 @@ private fun NtpStatusBar(
     liveTimeMs: Long,
     onRefresh: () -> Unit
 ) {
+    val timeFormatter = remember { SimpleDateFormat("HH:mm:ss", Locale.GERMANY) }
     Card(
         modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(12.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+            containerColor = if (ntpStatus.isSynchronized) {
+                Color(0xFF10B981).copy(alpha = 0.12f)
+            } else {
+                Color(0xFFF59E0B).copy(alpha = 0.15f)
+            }
+        )
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
-                val dotColor by animateColorAsState(
-                    targetValue = if (ntpStatus.isSynchronized) Color(0xFF10B981) else Color(0xFFF59E0B),
-                    label = "ntpDot"
-                )
                 Box(
                     modifier = Modifier
-                        .size(12.dp)
-                        .background(dotColor, CircleShape)
+                        .size(10.dp)
+                        .background(
+                            if (ntpStatus.isSynchronized) Color(0xFF10B981) else Color(0xFFF59E0B),
+                            CircleShape
+                        )
                 )
                 Column {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Text(
-                            text = if (ntpStatus.isSynchronized) "NTP Atomzeit aktiv" else "NTP Sync ausstehend",
-                            style = MaterialTheme.typography.labelMedium,
-                            fontWeight = FontWeight.Bold,
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Surface(
-                            shape = RoundedCornerShape(4.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant
-                        ) {
-                            Text(
-                                text = "±${ntpStatus.estimatedAccuracyMs}ms",
-                                style = MaterialTheme.typography.labelSmall,
-                                fontSize = 10.sp,
-                                modifier = Modifier.padding(horizontal = 4.dp, vertical = 1.dp)
-                            )
-                        }
-                    }
-                    val timeFmt = remember { SimpleDateFormat("HH:mm:ss.SS", Locale.GERMANY) }
                     Text(
-                        text = "Atom: ${timeFmt.format(Date(liveTimeMs))} (${ntpStatus.serverUsed})",
+                        text = if (ntpStatus.isSynchronized) "NTP Atomzeit synchronisiert" else "NTP-Abgleich läuft...",
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = "Atomzeit: ${timeFormatter.format(Date(liveTimeMs))} (±${ntpStatus.estimatedAccuracyMs}ms)",
                         style = MaterialTheme.typography.bodySmall,
                         fontFamily = FontFamily.Monospace,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
@@ -712,14 +755,12 @@ private fun NtpStatusBar(
                 }
             }
 
-            IconButton(
-                onClick = onRefresh,
-                modifier = Modifier.testTag("sync_ntp_btn")
-            ) {
+            IconButton(onClick = onRefresh, modifier = Modifier.size(32.dp)) {
                 Icon(
                     Icons.Default.Refresh,
                     contentDescription = "NTP aktualisieren",
-                    tint = MaterialTheme.colorScheme.primary
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(18.dp)
                 )
             }
         }

@@ -30,7 +30,6 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TableChart
@@ -72,6 +71,7 @@ import com.example.ui.theme.AppThemeMode
 import com.example.ui.theme.WatchAccurancyTheme
 import de.uhrwerksarchiv.watchaccurancy.ui.screens.backup.BackupScreen
 import de.uhrwerksarchiv.watchaccurancy.ui.screens.charts.ChartsScreen
+import de.uhrwerksarchiv.watchaccurancy.ui.screens.charts.OverviewViewMode
 import de.uhrwerksarchiv.watchaccurancy.ui.screens.measure.MeasureScreen
 import de.uhrwerksarchiv.watchaccurancy.ui.screens.watches.WatchListScreen
 import de.uhrwerksarchiv.watchaccurancy.ui.viewmodel.UiMessage
@@ -105,6 +105,7 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode) {
     var currentTab by remember { mutableStateOf(ScreenTab.WATCHES) }
+    var overviewViewMode by remember { mutableStateOf(OverviewViewMode.TABLE) }
     val snackbarHostState = remember { SnackbarHostState() }
 
     LaunchedEffect(Unit) {
@@ -133,6 +134,8 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
     val distinctPeriods by viewModel.distinctPeriods.collectAsStateWithLifecycle()
     val selectedPeriodSetId by viewModel.selectedPeriodSetId.collectAsStateWithLifecycle()
     val selectedWatchLogs by viewModel.selectedWatchLogs.collectAsStateWithLifecycle()
+    val presetTemperature by viewModel.presetTemperature.collectAsStateWithLifecycle()
+    val latestMeasurementTimestamps by viewModel.latestMeasurementTimestamps.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWideScreen = maxWidth > 600.dp
@@ -261,10 +264,6 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                                 )
                             }
                         }
-
-                        IconButton(onClick = { viewModel.syncNtpNow() }) {
-                            Icon(Icons.Default.Refresh, contentDescription = "NTP abgleichen")
-                        }
                     }
                 )
             },
@@ -320,6 +319,7 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                             WatchListScreen(
                                 watches = watches,
                                 selectedWatchId = selectedWatchId,
+                                latestMeasurementTimestamps = latestMeasurementTimestamps,
                                 onSelectWatch = { viewModel.selectWatch(it) },
                                 onAddWatch = { model, serial, caliber, notes ->
                                     viewModel.addWatch(model, serial, caliber, notes)
@@ -332,6 +332,7 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                                 },
                                 onNavigateToCharts = {
                                     viewModel.selectWatch(it)
+                                    overviewViewMode = OverviewViewMode.CHART
                                     currentTab = ScreenTab.CHARTS
                                 },
                                 onLoadSampleData = {
@@ -349,8 +350,11 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                                 targetWatchTimeMs = targetWatchTimeMs,
                                 ntpStatus = ntpStatus,
                                 existingPeriods = distinctPeriods,
+                                allWatchLogs = selectedWatchLogs,
+                                presetTemperature = presetTemperature,
                                 onSelectWatch = { viewModel.selectWatch(it) },
                                 onSetPosition = { viewModel.setPosition(it) },
+                                onSetTemperature = { viewModel.setTemperature(it) },
                                 onAdjustTargetMinute = { viewModel.adjustTargetMinute(it) },
                                 onSetTargetToNextMinute = { viewModel.setTargetTimeToNextMinute() },
                                 onSyncNtp = { viewModel.syncNtpNow() },
@@ -361,6 +365,7 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                                 },
                                 onNavigateToOverview = { watchId ->
                                     viewModel.selectWatch(watchId)
+                                    overviewViewMode = OverviewViewMode.TABLE
                                     currentTab = ScreenTab.CHARTS
                                 }
                             )
@@ -382,7 +387,9 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                                 onUpdateLog = { updatedLog ->
                                     viewModel.updateMeasurementLog(updatedLog)
                                 },
-                                onDeleteLog = { viewModel.deleteLog(it) }
+                                onDeleteLog = { viewModel.deleteLog(it) },
+                                viewMode = overviewViewMode,
+                                onViewModeChanged = { overviewViewMode = it }
                             )
                         }
 

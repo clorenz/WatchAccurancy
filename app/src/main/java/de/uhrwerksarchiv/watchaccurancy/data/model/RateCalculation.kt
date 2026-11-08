@@ -29,6 +29,17 @@ data class RatePoint(
 }
 
 /**
+ * Modell zur Benennung und Repräsentation von Messperioden nach WatchCheck2 (Start- und Enddatum).
+ */
+data class PeriodDisplayInfo(
+    val setId: Int,
+    val title: String, // z. B. "12.08.23 - 25.08.23" oder "12.08.23"
+    val count: Int,
+    val startTimestampMs: Long,
+    val endTimestampMs: Long
+)
+
+/**
  * Gesamtstatistik für eine Uhr.
  */
 data class WatchStatistics(
@@ -156,6 +167,7 @@ object RateCalculator {
     private val dateFormatter = SimpleDateFormat("dd.MM.yy HH:mm", Locale.GERMANY)
     private val dateTimeWithSecondsFormatter = SimpleDateFormat("dd.MM.yy HH:mm:ss", Locale.GERMANY)
     private val timeFormatter = SimpleDateFormat("HH:mm:ss", Locale.GERMANY)
+    private val periodDateFormatter = SimpleDateFormat("dd.MM.yy", Locale.GERMANY)
 
     fun formatDateTime(timestampMs: Long): String {
         return dateFormatter.format(Date(timestampMs))
@@ -167,5 +179,34 @@ object RateCalculator {
 
     fun formatTimeOnly(timestampMs: Long): String {
         return timeFormatter.format(Date(timestampMs))
+    }
+
+    /**
+     * Ermittelt Benennung einer Periode mit Start- und Enddatum wie bei WatchCheck2.
+     * Beispiel: "12.08.23 - 25.08.23" (oder "12.08.23" wenn am gleichen Tag).
+     */
+    fun getPeriodDisplayInfo(allLogs: List<MeasurementLog>, setId: Int): PeriodDisplayInfo {
+        val periodLogs = allLogs.filter { it.setId == setId }.sortedBy { it.ntpTimestampMs }
+        if (periodLogs.isEmpty()) {
+            return PeriodDisplayInfo(
+                setId = setId,
+                title = "Periode ${setId + 1}",
+                count = 0,
+                startTimestampMs = 0L,
+                endTimestampMs = 0L
+            )
+        }
+        val start = periodLogs.first().ntpTimestampMs
+        val end = periodLogs.last().ntpTimestampMs
+        val startStr = periodDateFormatter.format(Date(start))
+        val endStr = periodDateFormatter.format(Date(end))
+        val title = if (startStr == endStr) startStr else "$startStr - $endStr"
+        return PeriodDisplayInfo(
+            setId = setId,
+            title = title,
+            count = periodLogs.size,
+            startTimestampMs = start,
+            endTimestampMs = end
+        )
     }
 }
