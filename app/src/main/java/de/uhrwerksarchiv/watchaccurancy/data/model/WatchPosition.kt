@@ -76,4 +76,32 @@ enum class WatchPosition(
             return entries.firstOrNull { it.code == trimmed } ?: WORN
         }
     }
+
+    fun getLocalizedTitle(context: android.content.Context): String {
+        val resId = when (this) {
+            WORN -> com.example.R.string.pos_worn
+            WINDER -> com.example.R.string.pos_winder
+            DU -> com.example.R.string.pos_display_up
+            DD -> com.example.R.string.pos_display_down
+            CU -> com.example.R.string.pos_crown_up
+            CD -> com.example.R.string.pos_crown_down
+            CL -> com.example.R.string.pos_crown_left
+            CR -> com.example.R.string.pos_crown_right
+        }
+        return context.getString(resId)
+    }
+
+    fun getLocalizedShortLabel(context: android.content.Context): String {
+        val resId = when (this) {
+            WORN -> com.example.R.string.pos_worn_short
+            WINDER -> com.example.R.string.pos_winder_short
+            DU -> com.example.R.string.pos_display_up_short
+            DD -> com.example.R.string.pos_display_down_short
+            CU -> com.example.R.string.pos_crown_up_short
+            CD -> com.example.R.string.pos_crown_down_short
+            CL -> com.example.R.string.pos_crown_left_short
+            CR -> com.example.R.string.pos_crown_right_short
+        }
+        return context.getString(resId)
+    }
 }

@@ -246,6 +246,22 @@ Neben der Tabellenansicht steht ein Umschalter auf das **Liniendiagramm** bereit
   - **Grün `#00AA00`** für positive Abweichungen (Vorgang).
   - **Rot `#AA0000`** für negative Abweichungen (Nachgang).
 
+### 5.9 Tägliche Mess-Erinnerung (WatchCheck Notification-Feature)
+- **Erinnerungsfunktion wie bei WatchCheck**:
+  - Ermöglicht das Aktivieren einer täglichen Benachrichtigung per Schalter im Einstellungsbereich (`BackupScreen`).
+  - **Individuelle Uhrzeit**: Schnellauswahl über Chips (z. B. 08:00, 12:00, 18:00, 20:00, 21:30, 22:00 Uhr).
+  - **Zuverlässiger Hintergrund-Alarm**: Implementiert über `AlarmManager.setAndAllowWhileIdle()` mit `ReminderReceiver` (`BroadcastReceiver`).
+  - **Geräteneustart**: Registrierung für `BOOT_COMPLETED`, damit die tägliche Erinnerung auch nach dem Neustart des Geräts pünktlich wieder eingeplant wird.
+  - **Berechtigungshandling ab Android 13 (`POST_NOTIFICATIONS`)**: Saubere Laufzeit-Berechtigungsabfrage vor Aktivierung der Benachrichtigung; bei Verweigerung bleibt die Einstellung deaktiviert.
+  - **Klick auf Benachrichtigung**: Öffnet direkt die WatchAccurancy-App (`MainActivity`) mit Start der Messung.
+
+### 5.10 Zweisprachigkeit (Deutsch & Englisch)
+- **Automatische Anpassung an die Gerätesprache**:
+  - Sämtliche Texte, Bezeichnungen, Dialoge, Navigationsleisten und Uhrenlagen sind vollständig lokalisiert:
+    - **Deutsch (`values-de/strings.xml`)**: Wenn das Gerät auf Deutsch eingestellt ist.
+    - **Englisch (`values/strings.xml`)**: Als internationaler Standard für alle anderen Gerätesprachen (Englisch, Französisch, Spanisch, etc.).
+  - Datums- und Uhrzeitformatierungen verwenden `Locale.getDefault()` für landestypische Formatierung.
+
 ---
 
 ## 6. Historisches Sicherungsformat (WatchCheck-Kompatibilität)

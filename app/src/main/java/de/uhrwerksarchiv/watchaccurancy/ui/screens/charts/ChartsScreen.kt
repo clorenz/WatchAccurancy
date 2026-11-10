@@ -253,7 +253,7 @@ fun ChartsScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(Icons.Default.TableChart, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Messergebnisse (Tabelle)")
+                        Text(androidx.compose.ui.res.stringResource(com.example.R.string.tab_view_table))
                     }
                 },
                 modifier = Modifier.testTag("tab_view_table")
@@ -267,7 +267,7 @@ fun ChartsScreen(
                         horizontalArrangement = Arrangement.spacedBy(6.dp)
                     ) {
                         Icon(Icons.Default.ShowChart, contentDescription = null, modifier = Modifier.size(18.dp))
-                        Text("Diagramm & Statistik")
+                        Text(androidx.compose.ui.res.stringResource(com.example.R.string.tab_view_charts))
                     }
                 },
                 modifier = Modifier.testTag("tab_view_chart")
@@ -428,14 +428,14 @@ fun ChartsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = "Referenz (NTP)",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.table_col_reference),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,
                                 modifier = Modifier.weight(1.35f)
                             )
                             Text(
-                                text = "Abw.",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.table_col_deviation),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,
@@ -443,7 +443,7 @@ fun ChartsScreen(
                                 modifier = Modifier.weight(0.75f)
                             )
                             Text(
-                                text = "Gang",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.table_col_rate),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,
@@ -451,7 +451,7 @@ fun ChartsScreen(
                                 modifier = Modifier.weight(0.9f)
                             )
                             Text(
-                                text = "Lage",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.table_col_position),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,
@@ -459,7 +459,7 @@ fun ChartsScreen(
                                 modifier = Modifier.weight(0.7f)
                             )
                             Text(
-                                text = "Temp.",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.table_col_temp),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,
@@ -467,7 +467,7 @@ fun ChartsScreen(
                                 modifier = Modifier.weight(0.6f)
                             )
                             Text(
-                                text = "Aktion",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.table_col_action),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.Black,

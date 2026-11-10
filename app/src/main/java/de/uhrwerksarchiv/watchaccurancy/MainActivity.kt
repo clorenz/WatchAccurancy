@@ -77,11 +77,11 @@ import de.uhrwerksarchiv.watchaccurancy.ui.screens.watches.WatchListScreen
 import de.uhrwerksarchiv.watchaccurancy.ui.viewmodel.UiMessage
 import de.uhrwerksarchiv.watchaccurancy.ui.viewmodel.WatchViewModel
 
-enum class ScreenTab(val title: String, val icon: ImageVector, val tag: String) {
-    WATCHES("Uhren", Icons.Default.Watch, "tab_watches"),
-    MEASURE("Messung", Icons.Default.PlayArrow, "tab_measure"),
-    CHARTS("Übersicht", Icons.Default.TableChart, "tab_charts"),
-    BACKUP("Backup", Icons.Default.Sync, "tab_backup")
+enum class ScreenTab(val titleResId: Int, val icon: ImageVector, val tag: String) {
+    WATCHES(R.string.tab_watches, Icons.Default.Watch, "tab_watches"),
+    MEASURE(R.string.tab_measure, Icons.Default.PlayArrow, "tab_measure"),
+    CHARTS(R.string.tab_analysis, Icons.Default.TableChart, "tab_charts"),
+    BACKUP(R.string.tab_backup, Icons.Default.Sync, "tab_backup")
 }
 
 class MainActivity : ComponentActivity() {
@@ -136,6 +136,9 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
     val selectedWatchLogs by viewModel.selectedWatchLogs.collectAsStateWithLifecycle()
     val presetTemperature by viewModel.presetTemperature.collectAsStateWithLifecycle()
     val latestMeasurementTimestamps by viewModel.latestMeasurementTimestamps.collectAsStateWithLifecycle()
+    val reminderEnabled by viewModel.reminderEnabled.collectAsStateWithLifecycle()
+    val reminderHour by viewModel.reminderHour.collectAsStateWithLifecycle()
+    val reminderMinute by viewModel.reminderMinute.collectAsStateWithLifecycle()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isWideScreen = maxWidth > 600.dp
@@ -274,11 +277,12 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                         tonalElevation = 6.dp
                     ) {
                         ScreenTab.entries.forEach { tab ->
+                            val labelText = androidx.compose.ui.res.stringResource(tab.titleResId)
                             NavigationBarItem(
                                 selected = currentTab == tab,
                                 onClick = { currentTab = tab },
-                                icon = { Icon(tab.icon, contentDescription = tab.title) },
-                                label = { Text(tab.title) },
+                                icon = { Icon(tab.icon, contentDescription = labelText) },
+                                label = { Text(labelText) },
                                 modifier = Modifier.testTag(tab.tag),
                                 colors = NavigationBarItemDefaults.colors(
                                     selectedIconColor = MaterialTheme.colorScheme.primary,
@@ -302,11 +306,12 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                         modifier = Modifier.fillMaxHeight()
                     ) {
                         ScreenTab.entries.forEach { tab ->
+                            val labelText = androidx.compose.ui.res.stringResource(tab.titleResId)
                             NavigationRailItem(
                                 selected = currentTab == tab,
                                 onClick = { currentTab = tab },
-                                icon = { Icon(tab.icon, contentDescription = tab.title) },
-                                label = { Text(tab.title) },
+                                icon = { Icon(tab.icon, contentDescription = labelText) },
+                                label = { Text(labelText) },
                                 modifier = Modifier.testTag(tab.tag)
                             )
                         }
@@ -398,6 +403,11 @@ fun WatchAccurancyApp(viewModel: WatchViewModel, currentThemeMode: AppThemeMode)
                                 importReport = importReport,
                                 isImporting = isImporting,
                                 currentThemeMode = currentThemeMode,
+                                reminderEnabled = reminderEnabled,
+                                reminderHour = reminderHour,
+                                reminderMinute = reminderMinute,
+                                onSetReminderEnabled = { viewModel.setReminderEnabled(it) },
+                                onSetReminderTime = { h, m -> viewModel.setReminderTime(h, m) },
                                 onSelectThemeMode = { viewModel.setThemeMode(it) },
                                 onCheckBackupText = { viewModel.checkBackupText(it) },
                                 onExecuteImport = { clearExisting ->

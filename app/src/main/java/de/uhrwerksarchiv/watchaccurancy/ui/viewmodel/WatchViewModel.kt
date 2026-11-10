@@ -130,6 +130,55 @@ class WatchViewModel(application: Application) : AndroidViewModel(application) {
     private val _isImporting = MutableStateFlow(false)
     val isImporting: StateFlow<Boolean> = _isImporting.asStateFlow()
 
+    // Tägliche Mess-Erinnerung (WatchCheck)
+    private val _reminderEnabled = MutableStateFlow(
+        de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.isReminderEnabled(application)
+    )
+    val reminderEnabled: StateFlow<Boolean> = _reminderEnabled.asStateFlow()
+
+    private val initialReminderTime = de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.getReminderTime(application)
+    private val _reminderHour = MutableStateFlow(initialReminderTime.first)
+    val reminderHour: StateFlow<Int> = _reminderHour.asStateFlow()
+
+    private val _reminderMinute = MutableStateFlow(initialReminderTime.second)
+    val reminderMinute: StateFlow<Int> = _reminderMinute.asStateFlow()
+
+    fun setReminderEnabled(enabled: Boolean) {
+        _reminderEnabled.value = enabled
+        de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.setReminderEnabled(
+            getApplication(),
+            enabled,
+            _reminderHour.value,
+            _reminderMinute.value
+        )
+        viewModelScope.launch {
+            val status = if (enabled) "Erinnerung aktiviert" else "Erinnerung deaktiviert"
+            _uiEvents.emit(UiMessage.Success(status))
+        }
+    }
+
+    fun setReminderTime(hour: Int, minute: Int) {
+        _reminderHour.value = hour
+        _reminderMinute.value = minute
+        if (_reminderEnabled.value) {
+            de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.setReminderEnabled(
+                getApplication(),
+                true,
+                hour,
+                minute
+            )
+        } else {
+            val prefs = getApplication<Application>().getSharedPreferences(
+                de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.PREFS_NAME,
+                Context.MODE_PRIVATE
+            )
+            prefs.edit()
+                .putInt(de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.KEY_REMINDER_HOUR, hour)
+                .putInt(de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.KEY_REMINDER_MINUTE, minute)
+                .apply()
+        }
+    }
+
     // Speichert pro Uhr die gewählte Periode; standardmäßig wird immer die aktuellste/letzte gewählt
     private val selectedPeriodPerWatch = mutableMapOf<Long, Int?>()
 

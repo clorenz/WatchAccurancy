@@ -9,6 +9,7 @@ import android.provider.OpenableColumns
 import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -23,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.CheckCircle
@@ -83,6 +85,11 @@ fun BackupScreen(
     importReport: ParseReport?,
     isImporting: Boolean,
     currentThemeMode: AppThemeMode = AppThemeMode.LIGHT,
+    reminderEnabled: Boolean = false,
+    reminderHour: Int = 20,
+    reminderMinute: Int = 0,
+    onSetReminderEnabled: (Boolean) -> Unit = {},
+    onSetReminderTime: (hour: Int, minute: Int) -> Unit = { _, _ -> },
     onSelectThemeMode: (AppThemeMode) -> Unit = {},
     onCheckBackupText: (String) -> Unit,
     onExecuteImport: (clearExisting: Boolean) -> Unit,
@@ -156,6 +163,20 @@ fun BackupScreen(
         }
     }
 
+    // Notification permission launcher for Android 13+ (API 33+)
+    var showPermissionRationaleDialog by remember { mutableStateOf(false) }
+    val notificationPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted: Boolean ->
+        if (isGranted) {
+            onSetReminderEnabled(true)
+            Toast.makeText(context, context.getString(com.example.R.string.reminder_card_title) + ": " + context.getString(com.example.R.string.reminder_status_active, String.format(Locale.US, "%02d:%02d", reminderHour, reminderMinute)), Toast.LENGTH_SHORT).show()
+        } else {
+            onSetReminderEnabled(false)
+            Toast.makeText(context, context.getString(com.example.R.string.reminder_status_inactive), Toast.LENGTH_SHORT).show()
+        }
+    }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -163,7 +184,134 @@ fun BackupScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        // 0. ERSCHEINUNGSBILD / THEME-MODUS
+        // 0. TÄGLICHE MESS-ERINNERUNG (WatchCheck Feature)
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("reminder_card"),
+            shape = RoundedCornerShape(16.dp),
+            colors = CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surface
+            ),
+            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Notifications,
+                            contentDescription = null,
+                            tint = if (reminderEnabled) Color(0xFFFFA000) else MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Text(
+                            text = androidx.compose.ui.res.stringResource(com.example.R.string.reminder_card_title),
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+
+                    androidx.compose.material3.Switch(
+                        checked = reminderEnabled,
+                        onCheckedChange = { enable ->
+                            if (enable) {
+                                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                                    val hasPermission = androidx.core.content.ContextCompat.checkSelfPermission(
+                                        context,
+                                        android.Manifest.permission.POST_NOTIFICATIONS
+                                    ) == android.content.pm.PackageManager.PERMISSION_GRANTED
+                                    if (hasPermission) {
+                                        onSetReminderEnabled(true)
+                                    } else {
+                                        notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                                    }
+                                } else {
+                                    onSetReminderEnabled(true)
+                                }
+                            } else {
+                                onSetReminderEnabled(false)
+                            }
+                        },
+                        modifier = Modifier.testTag("reminder_toggle_switch")
+                    )
+                }
+
+                Text(
+                    text = androidx.compose.ui.res.stringResource(com.example.R.string.reminder_card_desc),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (reminderEnabled) {
+                    val formattedTime = String.format(Locale.US, "%02d:%02d", reminderHour, reminderMinute)
+                    Surface(
+                        shape = RoundedCornerShape(8.dp),
+                        color = Color(0xFFFFA000).copy(alpha = 0.15f)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 12.dp, vertical = 8.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.reminder_status_active, formattedTime),
+                                style = MaterialTheme.typography.bodySmall,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                        }
+                    }
+
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(com.example.R.string.reminder_time_label),
+                        style = MaterialTheme.typography.labelMedium,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    // Uhrzeit-Auswahlchips (z.B. 08:00, 12:00, 18:00, 20:00, 22:00)
+                    val presetTimes = listOf(
+                        Pair(8, 0),
+                        Pair(12, 0),
+                        Pair(18, 0),
+                        Pair(20, 0),
+                        Pair(21, 30),
+                        Pair(22, 0)
+                    )
+
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        presetTimes.forEach { (h, m) ->
+                            val label = String.format(Locale.US, "%02d:%02d", h, m)
+                            val isSelected = reminderHour == h && reminderMinute == m
+                            FilterChip(
+                                selected = isSelected,
+                                onClick = { onSetReminderTime(h, m) },
+                                label = { Text(label) },
+                                leadingIcon = if (isSelected) {
+                                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(14.dp)) }
+                                } else null
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 1. ERSCHEINUNGSBILD / THEME-MODUS
         Card(
             modifier = Modifier.fillMaxWidth().testTag("theme_selection_card"),
             shape = RoundedCornerShape(16.dp),
@@ -190,14 +338,14 @@ fun BackupScreen(
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
-                        text = "Erscheinungsbild / Design",
+                        text = androidx.compose.ui.res.stringResource(com.example.R.string.theme_setting_title),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold
                     )
                 }
 
                 Text(
-                    text = "Wähle zwischen dem hellen Modus, dem dunklen Modus oder richte dich automatisch nach der Systemeinstellung deines Geräts.",
+                    text = androidx.compose.ui.res.stringResource(com.example.R.string.theme_setting_desc),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -209,7 +357,7 @@ fun BackupScreen(
                     FilterChip(
                         selected = currentThemeMode == AppThemeMode.LIGHT,
                         onClick = { onSelectThemeMode(AppThemeMode.LIGHT) },
-                        label = { Text("Hell") },
+                        label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.theme_light)) },
                         leadingIcon = {
                             Icon(Icons.Default.LightMode, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
@@ -219,7 +367,7 @@ fun BackupScreen(
                     FilterChip(
                         selected = currentThemeMode == AppThemeMode.DARK,
                         onClick = { onSelectThemeMode(AppThemeMode.DARK) },
-                        label = { Text("Dunkel") },
+                        label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.theme_dark)) },
                         leadingIcon = {
                             Icon(Icons.Default.DarkMode, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
@@ -229,7 +377,7 @@ fun BackupScreen(
                     FilterChip(
                         selected = currentThemeMode == AppThemeMode.SYSTEM,
                         onClick = { onSelectThemeMode(AppThemeMode.SYSTEM) },
-                        label = { Text("System") },
+                        label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.theme_system)) },
                         leadingIcon = {
                             Icon(Icons.Default.BrightnessAuto, contentDescription = null, modifier = Modifier.size(16.dp))
                         },
@@ -239,7 +387,7 @@ fun BackupScreen(
             }
         }
 
-        // 1. WATCHCHECK BACKUP IMPORT
+        // 2. WATCHCHECK BACKUP IMPORT
         Card(
             modifier = Modifier.fillMaxWidth(),
             shape = RoundedCornerShape(16.dp),

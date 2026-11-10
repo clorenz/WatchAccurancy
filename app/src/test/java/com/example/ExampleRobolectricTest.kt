@@ -18,4 +18,21 @@ class ExampleRobolectricTest {
     val appName = context.getString(R.string.app_name)
     assertEquals("WatchAccurancy", appName)
   }
+
+  @Test
+  fun `test reminder manager settings persistence`() {
+    val context = ApplicationProvider.getApplicationContext<Context>()
+    de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.setReminderEnabled(context, true, 21, 30)
+
+    val isEnabled = de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.isReminderEnabled(context)
+    val time = de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.getReminderTime(context)
+
+    assertEquals(true, isEnabled)
+    assertEquals(21, time.first)
+    assertEquals(30, time.second)
+
+    // Disable reminder
+    de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.setReminderEnabled(context, false)
+    assertEquals(false, de.uhrwerksarchiv.watchaccurancy.reminder.ReminderManager.isReminderEnabled(context))
+  }
 }

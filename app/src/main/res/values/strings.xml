@@ -1,19 +1,135 @@
 <resources>
+    <!-- App Details -->
     <string name="app_name">WatchAccurancy</string>
-    <string name="app_subtitle">Präzise Gangmessung für mechanische Uhren</string>
-    <string name="license_notice">WatchAccurancy ist freie Open-Source-Software (GPLv3)</string>
-    <string name="tab_watches">Uhren</string>
-    <string name="tab_measure">Messung</string>
-    <string name="tab_analysis">Diagramme</string>
-    <string name="tab_backup">Backup / Import</string>
-    
-    <!-- Positionen (Uhrenlagen) -->
-    <string name="pos_worn">Am Arm getragen (WORN)</string>
-    <string name="pos_winder">Uhrenbeweger (WINDER)</string>
-    <string name="pos_display_up">Zifferblatt oben (DU)</string>
-    <string name="pos_display_down">Zifferblatt unten (DD)</string>
-    <string name="pos_crown_up">Krone oben (CU)</string>
-    <string name="pos_crown_down">Krone unten (CD)</string>
-    <string name="pos_crown_left">Krone links (CL)</string>
-    <string name="pos_crown_right">Krone rechts (CR)</string>
+    <string name="app_subtitle">Precise rate measurement for mechanical watches</string>
+    <string name="license_notice">WatchAccurancy is Free Open Source Software (GPLv3)</string>
+
+    <!-- Navigation Tabs -->
+    <string name="tab_watches">Watches</string>
+    <string name="tab_measure">Measure</string>
+    <string name="tab_analysis">Overview</string>
+    <string name="tab_backup">Settings</string>
+
+    <!-- Positions / Watch orientations -->
+    <string name="pos_worn">Worn on wrist</string>
+    <string name="pos_worn_short">Worn</string>
+    <string name="pos_winder">Watch Winder</string>
+    <string name="pos_winder_short">Winder</string>
+    <string name="pos_display_up">Dial Up (DU)</string>
+    <string name="pos_display_up_short">DU</string>
+    <string name="pos_display_down">Dial Down (DD)</string>
+    <string name="pos_display_down_short">DD</string>
+    <string name="pos_crown_up">Crown Up (CU)</string>
+    <string name="pos_crown_up_short">CU</string>
+    <string name="pos_crown_down">Crown Down (CD)</string>
+    <string name="pos_crown_down_short">CD</string>
+    <string name="pos_crown_left">Crown Left (CL)</string>
+    <string name="pos_crown_left_short">CL</string>
+    <string name="pos_crown_right">Crown Right (CR)</string>
+    <string name="pos_crown_right_short">CR</string>
+
+    <!-- Reminder Notification -->
+    <string name="reminder_channel_name">WatchCheck Measurement Reminder</string>
+    <string name="reminder_channel_description">Daily reminder to check and measure your watch accuracy</string>
+    <string name="reminder_notification_title">Daily WatchCheck Reminder</string>
+    <string name="reminder_notification_message">Time to check your mechanical watch! Take a quick measurement now.</string>
+
+    <!-- Reminder Settings UI -->
+    <string name="reminder_card_title">Daily Measurement Reminder</string>
+    <string name="reminder_card_desc">Receive a daily notification reminder to measure your watch accuracy at a set time (as in original WatchCheck).</string>
+    <string name="reminder_switch_label">Enable daily reminder</string>
+    <string name="reminder_time_label">Reminder time:</string>
+    <string name="reminder_status_active">Active daily at %s</string>
+    <string name="reminder_status_inactive">Disabled</string>
+    <string name="reminder_permission_dialog_title">Notification Permission Required</string>
+    <string name="reminder_permission_dialog_desc">To receive daily reminders to measure your watch, please allow notifications for WatchAccurancy.</string>
+    <string name="reminder_permission_grant">Allow Notifications</string>
+
+    <!-- Watch List Screen -->
+    <string name="watches_title">My Watches</string>
+    <string name="watches_count_format">%d watches in collection</string>
+    <string name="load_samples">Load Samples</string>
+    <string name="load_samples_subtitle">Load sample watches &amp; measurements (Chronograph, Automatic)</string>
+    <string name="empty_watches_title">No watches added yet</string>
+    <string name="empty_watches_desc">Add your first mechanical watch or load historical sample data to test tracking watch precision.</string>
+    <string name="add_first_watch">Add first watch</string>
+    <string name="add_watch">Add watch</string>
+    <string name="add_watch_title">Add New Watch</string>
+    <string name="edit_watch_title">Edit Watch</string>
+    <string name="input_watch_name">Name / Model (e.g. Pilot Automatic)*</string>
+    <string name="input_watch_caliber">Caliber / Movement (e.g. Automatic 2824-2, Manual wind)</string>
+    <string name="input_watch_serial">Serial Number (e.g. E283744)</string>
+    <string name="input_watch_notes">Notes (Service, Purchase year, etc.)</string>
+    <string name="save">Save</string>
+    <string name="update">Update</string>
+    <string name="cancel">Cancel</string>
+    <string name="delete">Delete</string>
+    <string name="delete_watch_title">Delete Watch?</string>
+    <string name="delete_watch_msg">Do you really want to permanently delete \'%s\' and all its recorded measurement points?</string>
+    <string name="btn_measure">Measure</string>
+    <string name="btn_chart">Chart</string>
+    <string name="last_measurement_format">Last measurement: %s</string>
+    <string name="no_measurements_yet">No measurements yet</string>
+
+    <!-- Measure Screen -->
+    <string name="measure_selected_watch">SELECTED WATCH</string>
+    <string name="measure_no_watch_selected">No watch selected</string>
+    <string name="measure_ntp_status_title">ATOMIC TIME REFERENCE (NTP)</string>
+    <string name="measure_ntp_synchronized">Synchronized via %s</string>
+    <string name="measure_ntp_unsynchronized">Connecting to NTP server...</string>
+    <string name="measure_ntp_accuracy">Estimated accuracy: ±%d ms</string>
+    <string name="measure_target_time_label">Target Watch Time (second hand on 00):</string>
+    <string name="measure_now_button">NOW!</string>
+    <string name="measure_now_instruction">Tap NOW when the watch hand reaches 12 o\'clock (00 seconds)</string>
+    <string name="measure_period_label">Measurement Period:</string>
+    <string name="measure_new_period_btn">+ New Period (from today)</string>
+    <string name="measure_position_label">Watch Orientation / Position:</string>
+    <string name="measure_temp_label">Temperature / Extra value (°C):</string>
+    <string name="measure_notes_label">Notes / Context (e.g. Worn at office, Left overnight):</string>
+    <string name="measure_next_minute">Next minute</string>
+
+    <!-- Overview & Charts -->
+    <string name="tab_view_table">Measurements (Table)</string>
+    <string name="tab_view_charts">Charts &amp; Statistics</string>
+    <string name="table_col_reference">Reference (NTP)</string>
+    <string name="table_col_deviation">Dev.</string>
+    <string name="table_col_rate">Rate</string>
+    <string name="table_col_position">Pos.</string>
+    <string name="table_col_temp">Temp.</string>
+    <string name="table_col_action">Action</string>
+    <string name="table_hint">Tap on any row to edit or (i) for notes.</string>
+    <string name="table_empty_hint">No measurements recorded yet. Take the first measurement in the \'Measure\' tab!</string>
+    <string name="table_footer_avg">Ø Rate: %s</string>
+    <string name="table_footer_duration">Duration: %s</string>
+    <string name="filter_positions">Filter by position:</string>
+    <string name="all_positions">All positions</string>
+    <string name="all_periods">All</string>
+    <string name="stat_average_rate">Ø Daily Rate</string>
+    <string name="stat_total_drift">Total Drift</string>
+    <string name="stat_observation_period">Observation Period</string>
+    <string name="stat_cosc_compliance">COSC Chronometer Norm</string>
+    <string name="stat_cosc_passed">Complies with COSC (-4 to +6 s/d)</string>
+    <string name="stat_cosc_failed">Outside COSC tolerance</string>
+    <string name="stat_positions_comparison">Position Comparison (Rate by Position)</string>
+    <string name="chart_empty_points">No measurement points available for this chart yet.</string>
+    <string name="chart_needs_two_points">At least 2 measurement points required for daily rate (s/d).</string>
+    <string name="delete_log_dialog_title">Delete Measurement Point</string>
+    <string name="delete_log_dialog_msg">Do you really want to delete the log entry from %s?</string>
+
+    <!-- Settings & Backup -->
+    <string name="theme_setting_title">Appearance / Theme</string>
+    <string name="theme_setting_desc">Choose between Light Mode, Dark Mode, or follow your device\'s system settings.</string>
+    <string name="theme_light">Light</string>
+    <string name="theme_dark">Dark</string>
+    <string name="theme_system">System</string>
+    <string name="backup_import_title">WatchCheck Backup Import</string>
+    <string name="backup_import_desc">Import existing data from WatchCheck or WatchAccurancy (.data, .txt, .csv) without losing your measurements.</string>
+    <string name="backup_select_file">Choose WatchCheck file (.data, .txt, .csv)...</string>
+    <string name="backup_export_title">Compatible Data Export</string>
+    <string name="backup_export_desc">Generates a complete text backup of all watches and measurement points in the identical format for universal sharing with WatchCheck.</string>
+    <string name="backup_generate_btn">Generate Export Text</string>
+    <string name="backup_save_file">Save...</string>
+    <string name="backup_copy">Copy</string>
+    <string name="backup_share">Share</string>
+    <string name="open_source_desc">WatchAccurancy is Free Software licensed under the GNU General Public License v3. All data remains private on your device.</string>
 </resources>

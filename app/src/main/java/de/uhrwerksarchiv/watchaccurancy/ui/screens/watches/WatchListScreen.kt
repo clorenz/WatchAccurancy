@@ -105,13 +105,13 @@ fun WatchListScreen(
             ) {
                 Column {
                     Text(
-                        text = "Meine Uhren",
+                        text = androidx.compose.ui.res.stringResource(com.example.R.string.watches_title),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onBackground
                     )
                     Text(
-                        text = "${watches.size} Uhren im Bestand",
+                        text = androidx.compose.ui.res.stringResource(com.example.R.string.watches_count_format, watches.size),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -122,7 +122,7 @@ fun WatchListScreen(
                         onClick = onLoadSampleData,
                         modifier = Modifier.testTag("load_sample_btn")
                     ) {
-                        Text("Beispiele laden")
+                        Text(androidx.compose.ui.res.stringResource(com.example.R.string.load_samples))
                     }
                 }
             }
@@ -168,9 +168,11 @@ fun WatchListScreen(
     }
 
     if (showAddDialog) {
+        val addTitle = androidx.compose.ui.res.stringResource(com.example.R.string.add_watch_title)
+        val saveText = androidx.compose.ui.res.stringResource(com.example.R.string.save)
         WatchEditDialog(
-            title = "Neue Uhr hinzufügen",
-            confirmText = "Speichern",
+            title = addTitle,
+            confirmText = saveText,
             initialModel = "",
             initialSerial = "",
             initialCaliber = "",
@@ -184,9 +186,11 @@ fun WatchListScreen(
     }
 
     watchToEdit?.let { watch ->
+        val editTitle = androidx.compose.ui.res.stringResource(com.example.R.string.edit_watch_title)
+        val updateText = androidx.compose.ui.res.stringResource(com.example.R.string.update)
         WatchEditDialog(
-            title = "Uhr bearbeiten",
-            confirmText = "Aktualisieren",
+            title = editTitle,
+            confirmText = updateText,
             initialModel = watch.model,
             initialSerial = watch.serialNumber,
             initialCaliber = watch.caliber,
@@ -209,9 +213,9 @@ fun WatchListScreen(
     watchToDelete?.let { watch ->
         AlertDialog(
             onDismissRequest = { watchToDelete = null },
-            title = { Text("Uhr löschen?") },
+            title = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.delete_watch_title)) },
             text = {
-                Text("Möchtest du '${watch.model}' und alle zugehörigen Messpunkte wirklich unwiderruflich löschen?")
+                Text(androidx.compose.ui.res.stringResource(com.example.R.string.delete_watch_msg, watch.model))
             },
             confirmButton = {
                 Button(
@@ -221,12 +225,12 @@ fun WatchListScreen(
                     },
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
                 ) {
-                    Text("Löschen")
+                    Text(androidx.compose.ui.res.stringResource(com.example.R.string.delete))
                 }
             },
             dismissButton = {
                 TextButton(onClick = { watchToDelete = null }) {
-                    Text("Abbrechen")
+                    Text(androidx.compose.ui.res.stringResource(com.example.R.string.cancel))
                 }
             }
         )
@@ -327,9 +331,9 @@ private fun WatchCard(
                         // Letztes Messdatum
                         Spacer(modifier = Modifier.height(3.dp))
                         if (latestMeasurementMs != null && latestMeasurementMs > 0L) {
-                            val dateFmt = remember { java.text.SimpleDateFormat("dd.MM.yy HH:mm", java.util.Locale.GERMANY) }
+                            val dateFmt = remember { java.text.SimpleDateFormat("dd.MM.yy HH:mm", java.util.Locale.getDefault()) }
                             Text(
-                                text = "Letzte Messung: ${dateFmt.format(java.util.Date(latestMeasurementMs))}",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.last_measurement_format, dateFmt.format(java.util.Date(latestMeasurementMs))),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 11.sp,
                                 color = Color(0xFFFFA000),
@@ -337,7 +341,7 @@ private fun WatchCard(
                             )
                         } else {
                             Text(
-                                text = "Noch keine Messungen",
+                                text = androidx.compose.ui.res.stringResource(com.example.R.string.no_measurements_yet),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontSize = 11.sp,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
@@ -350,7 +354,7 @@ private fun WatchCard(
                     IconButton(onClick = onEdit) {
                         Icon(
                             Icons.Default.Edit,
-                            contentDescription = "Bearbeiten",
+                            contentDescription = androidx.compose.ui.res.stringResource(com.example.R.string.edit_watch_title),
                             tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             modifier = Modifier.size(20.dp)
                         )
@@ -358,7 +362,7 @@ private fun WatchCard(
                     IconButton(onClick = onDelete) {
                         Icon(
                             Icons.Default.Delete,
-                            contentDescription = "Löschen",
+                            contentDescription = androidx.compose.ui.res.stringResource(com.example.R.string.delete),
                             tint = MaterialTheme.colorScheme.error.copy(alpha = 0.8f),
                             modifier = Modifier.size(20.dp)
                         )
@@ -389,7 +393,7 @@ private fun WatchCard(
                 ) {
                     Icon(Icons.Default.PlayArrow, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Messen")
+                    Text(androidx.compose.ui.res.stringResource(com.example.R.string.btn_measure))
                 }
 
                 OutlinedButton(
@@ -398,7 +402,7 @@ private fun WatchCard(
                 ) {
                     Icon(Icons.Default.ShowChart, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(modifier = Modifier.width(6.dp))
-                    Text("Diagramm")
+                    Text(androidx.compose.ui.res.stringResource(com.example.R.string.btn_chart))
                 }
             }
         }
@@ -440,14 +444,14 @@ private fun EmptyWatchesCard(
             }
 
             Text(
-                text = "Noch keine Uhren angelegt",
+                text = androidx.compose.ui.res.stringResource(com.example.R.string.empty_watches_title),
                 style = MaterialTheme.typography.titleLarge,
                 fontWeight = FontWeight.Bold,
                 color = MaterialTheme.colorScheme.onSurface
             )
 
             Text(
-                text = "Lege deine erste mechanische Uhr an oder lade historische Beispieldaten, um das Tracking der Ganggenauigkeit zu testen.",
+                text = androidx.compose.ui.res.stringResource(com.example.R.string.empty_watches_desc),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 lineHeight = 20.sp
@@ -461,14 +465,14 @@ private fun EmptyWatchesCard(
             ) {
                 Icon(Icons.Default.Add, contentDescription = null)
                 Spacer(modifier = Modifier.width(6.dp))
-                Text("Erste Uhr hinzufügen")
+                Text(androidx.compose.ui.res.stringResource(com.example.R.string.add_first_watch))
             }
 
             OutlinedButton(
                 onClick = onLoadSample,
                 modifier = Modifier.fillMaxWidth().testTag("empty_load_sample_btn")
             ) {
-                Text("Beispiel-Uhren & Messwerte laden (Chronograph, Automatik)")
+                Text(androidx.compose.ui.res.stringResource(com.example.R.string.load_samples_subtitle))
             }
         }
     }
@@ -501,28 +505,28 @@ private fun WatchEditDialog(
                 OutlinedTextField(
                     value = model,
                     onValueChange = { model = it },
-                    label = { Text("Name / Modell (z.B. Fliegeruhr Automatik)*") },
+                    label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.input_watch_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("input_watch_model")
                 )
                 OutlinedTextField(
                     value = caliber,
                     onValueChange = { caliber = it },
-                    label = { Text("Kaliber / Werk (z.B. Automatik 2824-2, Handaufzug)") },
+                    label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.input_watch_caliber)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("input_watch_caliber")
                 )
                 OutlinedTextField(
                     value = serial,
                     onValueChange = { serial = it },
-                    label = { Text("Seriennummer (z.B. E283744)") },
+                    label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.input_watch_serial)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().testTag("input_watch_serial")
                 )
                 OutlinedTextField(
                     value = notes,
                     onValueChange = { notes = it },
-                    label = { Text("Notizen (Revision, Kaufjahr, etc.)") },
+                    label = { Text(androidx.compose.ui.res.stringResource(com.example.R.string.input_watch_notes)) },
                     maxLines = 3,
                     modifier = Modifier.fillMaxWidth().testTag("input_watch_notes")
                 )
@@ -539,7 +543,7 @@ private fun WatchEditDialog(
         },
         dismissButton = {
             TextButton(onClick = onDismiss) {
-                Text("Abbrechen")
+                Text(androidx.compose.ui.res.stringResource(com.example.R.string.cancel))
             }
         }
     )
