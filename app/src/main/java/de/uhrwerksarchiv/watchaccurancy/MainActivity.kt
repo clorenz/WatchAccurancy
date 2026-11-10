@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.DarkMode
 import androidx.compose.material.icons.filled.LightMode
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.ShowChart
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.filled.TableChart
@@ -81,7 +82,7 @@ enum class ScreenTab(val titleResId: Int, val icon: ImageVector, val tag: String
     WATCHES(R.string.tab_watches, Icons.Default.Watch, "tab_watches"),
     MEASURE(R.string.tab_measure, Icons.Default.PlayArrow, "tab_measure"),
     CHARTS(R.string.tab_analysis, Icons.Default.TableChart, "tab_charts"),
-    BACKUP(R.string.tab_backup, Icons.Default.Sync, "tab_backup")
+    BACKUP(R.string.tab_backup, Icons.Default.Settings, "tab_backup")
 }
 
 class MainActivity : ComponentActivity() {

@@ -28,19 +28,21 @@
     <string name="pos_crown_right">Krone rechts (CR)</string>
     <string name="pos_crown_right_short">KR (CR)</string>
 
-    <!-- Erinnerungs-Benachrichtigung (WatchCheck) -->
-    <string name="reminder_channel_name">WatchCheck Mess-Erinnerung</string>
+    <!-- Erinnerungs-Benachrichtigung -->
+    <string name="reminder_channel_name">Mess-Erinnerung</string>
     <string name="reminder_channel_description">Tägliche Erinnerung zum Messen der Ganggenauigkeit</string>
-    <string name="reminder_notification_title">Tägliche WatchCheck-Erinnerung</string>
+    <string name="reminder_notification_title">Uhr jetzt messen!</string>
     <string name="reminder_notification_message">Zeit für die Messung deiner mechanischen Uhr! Jetzt kurz Ganggenauigkeit prüfen.</string>
 
     <!-- Erinnerungs-Einstellungen UI -->
     <string name="reminder_card_title">Tägliche Mess-Erinnerung</string>
-    <string name="reminder_card_desc">Erhalte einmal täglich zur gewünschten Uhrzeit eine Benachrichtigung, die Uhr zu messen (wie bei der alten WatchCheck-App).</string>
+    <string name="reminder_card_desc">Erhalte einmal täglich zur gewünschten Uhrzeit eine Benachrichtigung, die Uhr zu messen.</string>
     <string name="reminder_switch_label">Tägliche Erinnerung aktivieren</string>
     <string name="reminder_time_label">Erinnerungs-Uhrzeit:</string>
     <string name="reminder_status_active">Aktiv täglich um %s Uhr</string>
     <string name="reminder_status_inactive">Deaktiviert</string>
+    <string name="reminder_pick_time">Uhrzeit wählen</string>
+    <string name="reminder_dialog_set_time">Erinnerungszeit einstellen</string>
     <string name="reminder_permission_dialog_title">Benachrichtigungsberechtigung erforderlich</string>
     <string name="reminder_permission_dialog_desc">Um dich täglich an die Messung deiner Uhr erinnern zu können, benötigt WatchAccurancy die Berechtigung, Benachrichtigungen zu senden.</string>
     <string name="reminder_permission_grant">Berechtigung erteilen</string>

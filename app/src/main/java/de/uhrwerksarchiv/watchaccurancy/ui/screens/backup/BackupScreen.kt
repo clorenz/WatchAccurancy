@@ -24,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.BrightnessAuto
 import androidx.compose.material.icons.filled.Check
@@ -269,6 +270,31 @@ fun BackupScreen(
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
+
+                            // Button to freely pick any custom hour & minute
+                            OutlinedButton(
+                                onClick = {
+                                    val timePickerDialog = android.app.TimePickerDialog(
+                                        context,
+                                        { _, selectedH, selectedM ->
+                                            onSetReminderTime(selectedH, selectedM)
+                                        },
+                                        reminderHour,
+                                        reminderMinute,
+                                        android.text.format.DateFormat.is24HourFormat(context)
+                                    )
+                                    timePickerDialog.show()
+                                },
+                                contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = 10.dp, vertical = 4.dp),
+                                modifier = Modifier.testTag("reminder_time_picker_btn")
+                            ) {
+                                Icon(Icons.Default.AccessTime, contentDescription = null, modifier = Modifier.size(16.dp))
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = androidx.compose.ui.res.stringResource(com.example.R.string.reminder_pick_time),
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
                     }
 
@@ -278,7 +304,7 @@ fun BackupScreen(
                         fontWeight = FontWeight.SemiBold
                     )
 
-                    // Uhrzeit-Auswahlchips (z.B. 08:00, 12:00, 18:00, 20:00, 22:00)
+                    // Schnellwahl-Chips (z.B. 08:00, 12:00, 18:00, 20:00, 21:30, 22:00)
                     val presetTimes = listOf(
                         Pair(8, 0),
                         Pair(12, 0),

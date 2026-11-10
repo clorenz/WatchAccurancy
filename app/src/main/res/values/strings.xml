@@ -29,18 +29,20 @@
     <string name="pos_crown_right_short">CR</string>
 
     <!-- Reminder Notification -->
-    <string name="reminder_channel_name">WatchCheck Measurement Reminder</string>
+    <string name="reminder_channel_name">Measurement Reminder</string>
     <string name="reminder_channel_description">Daily reminder to check and measure your watch accuracy</string>
-    <string name="reminder_notification_title">Daily WatchCheck Reminder</string>
+    <string name="reminder_notification_title">Measure watch now!</string>
     <string name="reminder_notification_message">Time to check your mechanical watch! Take a quick measurement now.</string>
 
     <!-- Reminder Settings UI -->
     <string name="reminder_card_title">Daily Measurement Reminder</string>
-    <string name="reminder_card_desc">Receive a daily notification reminder to measure your watch accuracy at a set time (as in original WatchCheck).</string>
+    <string name="reminder_card_desc">Receive a daily notification reminder to measure your watch accuracy at a custom time.</string>
     <string name="reminder_switch_label">Enable daily reminder</string>
     <string name="reminder_time_label">Reminder time:</string>
     <string name="reminder_status_active">Active daily at %s</string>
     <string name="reminder_status_inactive">Disabled</string>
+    <string name="reminder_pick_time">Choose time</string>
+    <string name="reminder_dialog_set_time">Set reminder time</string>
     <string name="reminder_permission_dialog_title">Notification Permission Required</string>
     <string name="reminder_permission_dialog_desc">To receive daily reminders to measure your watch, please allow notifications for WatchAccurancy.</string>
     <string name="reminder_permission_grant">Allow Notifications</string>

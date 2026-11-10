@@ -246,14 +246,16 @@ Neben der Tabellenansicht steht ein Umschalter auf das **Liniendiagramm** bereit
   - **Grün `#00AA00`** für positive Abweichungen (Vorgang).
   - **Rot `#AA0000`** für negative Abweichungen (Nachgang).
 
-### 5.9 Tägliche Mess-Erinnerung (WatchCheck Notification-Feature)
-- **Erinnerungsfunktion wie bei WatchCheck**:
+### 5.9 Tägliche Mess-Erinnerung
+- **Erinnerungsfunktion**:
   - Ermöglicht das Aktivieren einer täglichen Benachrichtigung per Schalter im Einstellungsbereich (`BackupScreen`).
-  - **Individuelle Uhrzeit**: Schnellauswahl über Chips (z. B. 08:00, 12:00, 18:00, 20:00, 21:30, 22:00 Uhr).
+  - **Benachrichtigungstext**: Prägnanter Titel *„Uhr jetzt messen!“* (Englisch: *„Measure watch now!“*), neutral ohne WatchCheck-Namensnennung.
+  - **Frei wählbare Uhrzeit**: Über die Schaltfläche *„Uhrzeit wählen“* öffnet sich der native Android `TimePickerDialog` zur minutengenauen, freien Zeitwahl (ergänzt durch praktische Schnellwahl-Chips wie 08:00, 12:00, 18:00, 20:00, 21:30, 22:00 Uhr).
   - **Zuverlässiger Hintergrund-Alarm**: Implementiert über `AlarmManager.setAndAllowWhileIdle()` mit `ReminderReceiver` (`BroadcastReceiver`).
   - **Geräteneustart**: Registrierung für `BOOT_COMPLETED`, damit die tägliche Erinnerung auch nach dem Neustart des Geräts pünktlich wieder eingeplant wird.
   - **Berechtigungshandling ab Android 13 (`POST_NOTIFICATIONS`)**: Saubere Laufzeit-Berechtigungsabfrage vor Aktivierung der Benachrichtigung; bei Verweigerung bleibt die Einstellung deaktiviert.
-  - **Klick auf Benachrichtigung**: Öffnet direkt die WatchAccurancy-App (`MainActivity`) mit Start der Messung.
+  - **Klick auf Benachrichtigung**: Öffnet direkt die WatchAccurancy-App (`MainActivity`) zur Durchführung der Messung.
+- **Tab-Icon für Einstellungen**: Zahnrad-Symbol (`Icons.Default.Settings`) für den Einstellungs-/Backup-Tab in der Navigationsleiste.
 
 ### 5.10 Zweisprachigkeit (Deutsch & Englisch)
 - **Automatische Anpassung an die Gerätesprache**:
